@@ -1,47 +1,22 @@
 import Inquiry from "../models/Inquiry.js";
+import { readData, writeData } from "../config/localDb.js";
 
-// In-Memory mock storage for inquiries
-const mockInquiries = [
-  {
-    _id: "mock-inquiry-1",
-    name: "Anish Sharma",
-    email: "anish@alphatech.com",
-    company: "Alpha Tech Solutions",
-    service: "Security Testing & Analysis",
-    budget: "₹1L–₹5L",
-    message: "We need an external penetration testing and security audit done on our core banking web application. Please get in touch to discuss details.",
-    read: false,
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString() // 2 hours ago
-  },
-  {
-    _id: "mock-inquiry-2",
-    name: "Priya Patel",
-    email: "priya@nexus.io",
-    company: "Nexus E-Commerce",
-    service: "Web App Development",
-    budget: "₹5L+",
-    message: "Looking to build a highly responsive and custom React e-commerce platform integrated with local payment APIs.",
-    read: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-  },
-  {
-    _id: "mock-inquiry-3",
-    name: "Rahul Gupta",
-    email: "rahul@guptaconsulting.com",
-    company: "Gupta & Sons",
-    service: "Website Development",
-    budget: "₹50K–₹1L",
-    message: "Hi, I am interested in building a high-speed corporate landing page with nice animations and modern design.",
-    read: false,
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString() // 3 days ago
+const FILE_NAME = "inquiries.json";
+
+// Safe ID validation
+const isValidId = (id) => {
+  if (process.env.USE_MOCK_DB === "true") {
+    return /^[a-zA-Z0-9-]+$/.test(id);
   }
-];
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
 
 // @desc    Get all inquiries
 // @route   GET /api/inquiries
 // @access  Private (Admin Only)
 const getInquiries = async (req, res) => {
   if (process.env.USE_MOCK_DB === "true") {
+    const mockInquiries = readData(FILE_NAME);
     return res.json(mockInquiries);
   }
 
@@ -49,7 +24,7 @@ const getInquiries = async (req, res) => {
     const inquiries = await Inquiry.find({}).sort({ createdAt: -1 });
     return res.json(inquiries);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while fetching inquiries." });
   }
 };
 
@@ -57,8 +32,15 @@ const getInquiries = async (req, res) => {
 // @route   GET /api/inquiries/:id
 // @access  Private (Admin Only)
 const getInquiryById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({ error: "Invalid inquiry ID format." });
+  }
+
   if (process.env.USE_MOCK_DB === "true") {
-    const inquiry = mockInquiries.find((i) => i._id === req.params.id);
+    const mockInquiries = readData(FILE_NAME);
+    const inquiry = mockInquiries.find((i) => i._id === id);
     if (inquiry) {
       return res.json(inquiry);
     }
@@ -66,14 +48,14 @@ const getInquiryById = async (req, res) => {
   }
 
   try {
-    const inquiry = await Inquiry.findById(req.params.id);
+    const inquiry = await Inquiry.findById(id);
     if (inquiry) {
       return res.json(inquiry);
     } else {
       return res.status(404).json({ error: "Inquiry not found" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while fetching the inquiry." });
   }
 };
 
@@ -87,36 +69,71 @@ const createInquiry = async (req, res) => {
     return res.status(400).json({ error: "Name, email, service, budget, and message are required" });
   }
 
+  // Server-side strict validation
+  const cleanName = String(name).trim();
+  const cleanEmail = String(email).trim();
+  const cleanCompany = company ? String(company).trim() : "";
+  const cleanService = String(service).trim();
+  const cleanBudget = String(budget).trim();
+  const cleanMessage = String(message).trim();
+
+  if (cleanName.length < 2 || cleanName.length > 50) {
+    return res.status(400).json({ error: "Name must be between 2 and 50 characters." });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail) || cleanEmail.length > 100) {
+    return res.status(400).json({ error: "Please enter a valid email address." });
+  }
+
+  if (cleanCompany.length > 100) {
+    return res.status(400).json({ error: "Company name must not exceed 100 characters." });
+  }
+
+  if (cleanService.length < 2 || cleanService.length > 100) {
+    return res.status(400).json({ error: "Service choice must be between 2 and 100 characters." });
+  }
+
+  if (cleanBudget.length < 2 || cleanBudget.length > 50) {
+    return res.status(400).json({ error: "Budget field must be between 2 and 50 characters." });
+  }
+
+  if (cleanMessage.length < 10 || cleanMessage.length > 3000) {
+    return res.status(400).json({ error: "Message must be between 10 and 3000 characters." });
+  }
+
   if (process.env.USE_MOCK_DB === "true") {
+    const mockInquiries = readData(FILE_NAME);
     const newInquiry = {
       _id: `mock-inquiry-${Date.now()}`,
-      name,
-      email,
-      company: company || "",
-      service,
-      budget,
-      message,
+      name: cleanName,
+      email: cleanEmail,
+      company: cleanCompany,
+      service: cleanService,
+      budget: cleanBudget,
+      message: cleanMessage,
       read: false,
       createdAt: new Date().toISOString()
     };
     mockInquiries.unshift(newInquiry);
+    writeData(FILE_NAME, mockInquiries);
     return res.status(201).json(newInquiry);
   }
 
   try {
     const inquiry = new Inquiry({
-      name,
-      email,
-      company: company || "",
-      service,
-      budget,
-      message,
+      name: cleanName,
+      email: cleanEmail,
+      company: cleanCompany,
+      service: cleanService,
+      budget: cleanBudget,
+      message: cleanMessage,
     });
 
     const createdInquiry = await inquiry.save();
     return res.status(201).json(createdInquiry);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while submitting the inquiry." });
   }
 };
 
@@ -124,33 +141,42 @@ const createInquiry = async (req, res) => {
 // @route   PUT /api/inquiries/:id
 // @access  Private (Admin Only)
 const updateInquiryStatus = async (req, res) => {
+  const { id } = req.params;
   const { read } = req.body;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({ error: "Invalid inquiry ID format." });
+  }
 
   if (read === undefined) {
     return res.status(400).json({ error: "Read status is required" });
   }
 
+  const isRead = Boolean(read);
+
   if (process.env.USE_MOCK_DB === "true") {
-    const inquiry = mockInquiries.find((i) => i._id === req.params.id);
+    const mockInquiries = readData(FILE_NAME);
+    const inquiry = mockInquiries.find((i) => i._id === id);
     if (inquiry) {
-      inquiry.read = read;
+      inquiry.read = isRead;
+      writeData(FILE_NAME, mockInquiries);
       return res.json(inquiry);
     }
     return res.status(404).json({ error: "Inquiry not found" });
   }
 
   try {
-    const inquiry = await Inquiry.findById(req.params.id);
+    const inquiry = await Inquiry.findById(id);
 
     if (inquiry) {
-      inquiry.read = read;
+      inquiry.read = isRead;
       const updatedInquiry = await inquiry.save();
       return res.json(updatedInquiry);
     } else {
       return res.status(404).json({ error: "Inquiry not found" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while updating the inquiry status." });
   }
 };
 
@@ -158,17 +184,25 @@ const updateInquiryStatus = async (req, res) => {
 // @route   DELETE /api/inquiries/:id
 // @access  Private (Admin Only)
 const deleteInquiry = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidId(id)) {
+    return res.status(400).json({ error: "Invalid inquiry ID format." });
+  }
+
   if (process.env.USE_MOCK_DB === "true") {
-    const inquiryIndex = mockInquiries.findIndex((i) => i._id === req.params.id);
+    const mockInquiries = readData(FILE_NAME);
+    const inquiryIndex = mockInquiries.findIndex((i) => i._id === id);
     if (inquiryIndex !== -1) {
-      mockInquiries.splice(inquiryIndex, 1);
-      return res.json({ message: "Inquiry removed successfully" });
+      const removedInquiry = mockInquiries.splice(inquiryIndex, 1)[0];
+      writeData(FILE_NAME, mockInquiries);
+      return res.json({ message: "Inquiry removed successfully", inquiry: removedInquiry });
     }
     return res.status(404).json({ error: "Inquiry not found" });
   }
 
   try {
-    const inquiry = await Inquiry.findById(req.params.id);
+    const inquiry = await Inquiry.findById(id);
 
     if (inquiry) {
       await inquiry.deleteOne();
@@ -177,7 +211,7 @@ const deleteInquiry = async (req, res) => {
       return res.status(404).json({ error: "Inquiry not found" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while deleting the inquiry." });
   }
 };
 

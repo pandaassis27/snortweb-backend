@@ -1,10 +1,25 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
 import bcrypt from "bcryptjs";
+import { readData, writeData } from "../config/localDb.js";
+
+const FILE_NAME = "admins.json";
+
+// Helper to safely get JWT secret key
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET environment variable is missing!");
+    }
+    return "snortweb_super_secret_jwt_key_12345";
+  }
+  return secret;
+};
 
 // Helper to generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "snortweb_super_secret_jwt_key_12345", {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: "30d",
   });
 };
@@ -18,31 +33,38 @@ const setAuthCookie = (res, token) => {
   });
 };
 
-// In-Memory mock storage for admins
-const mockAdmins = [
-  {
-    _id: "mock-admin-id-12345",
-    username: "admin",
-    email: "admin@snortweb.com",
-    // bcrypt hash of "admin123"
-    password: "$2a$10$iW3x8H3L8qFmC7nJ1a8u3O0oK7hY6rE7tP4gS5wR6qT7uX8z9y2w6", 
-  }
-];
-
 // @desc    Register a new admin
 // @route   POST /api/auth/register
-// @access  Public
+// @access  Private (Super Admin Only)
 const registerAdmin = async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, role } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: "All fields are required" });
   }
 
+  // Strict input validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email) || email.length > 100) {
+    return res.status(400).json({ error: "Please enter a valid email address." });
+  }
+
+  const cleanedUsername = username.trim();
+  if (cleanedUsername.length < 3 || cleanedUsername.length > 30 || !/^[a-zA-Z0-9_-]+$/.test(cleanedUsername)) {
+    return res.status(400).json({ error: "Username must be between 3 and 30 characters and contain only alphanumeric characters, dashes, or underscores." });
+  }
+
+  if (password.length < 8 || password.length > 100) {
+    return res.status(400).json({ error: "Password must be between 8 and 100 characters." });
+  }
+
+  const targetRole = role === "superadmin" ? "superadmin" : "admin";
+
   // Check if Mock DB fallback is active
   if (process.env.USE_MOCK_DB === "true") {
+    const mockAdmins = readData(FILE_NAME);
     const adminExists = mockAdmins.find(
-      (a) => a.email === email.toLowerCase() || a.username === username
+      (a) => a.email === email.toLowerCase() || a.username === cleanedUsername
     );
     if (adminExists) {
       return res.status(400).json({ error: "Admin account with this email/username already exists" });
@@ -53,11 +75,13 @@ const registerAdmin = async (req, res) => {
 
     const newAdmin = {
       _id: `mock-admin-id-${Date.now()}`,
-      username,
+      username: cleanedUsername,
       email: email.toLowerCase(),
       password: hashedPassword,
+      role: targetRole,
     };
     mockAdmins.push(newAdmin);
+    writeData(FILE_NAME, mockAdmins);
 
     const token = generateToken(newAdmin._id);
     setAuthCookie(res, token);
@@ -66,20 +90,22 @@ const registerAdmin = async (req, res) => {
       _id: newAdmin._id,
       username: newAdmin.username,
       email: newAdmin.email,
+      role: newAdmin.role,
       token, // Kept for backward compatibility in standard clients
     });
   }
 
   try {
-    const adminExists = await Admin.findOne({ $or: [{ email }, { username }] });
+    const adminExists = await Admin.findOne({ $or: [{ email }, { username: cleanedUsername }] });
     if (adminExists) {
       return res.status(400).json({ error: "Admin account with this email/username already exists" });
     }
 
     const admin = await Admin.create({
-      username,
+      username: cleanedUsername,
       email,
       password,
+      role: targetRole,
     });
 
     if (admin) {
@@ -90,13 +116,14 @@ const registerAdmin = async (req, res) => {
         _id: admin._id,
         username: admin.username,
         email: admin.email,
+        role: admin.role,
         token, // Kept for backward compatibility in standard clients
       });
     } else {
       return res.status(400).json({ error: "Invalid admin data" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while creating the account." });
   }
 };
 
@@ -110,10 +137,13 @@ const loginAdmin = async (req, res) => {
     return res.status(400).json({ error: "Username/Email and Password are required" });
   }
 
+  const cleanUserOrEmail = String(usernameOrEmail).trim();
+
   // Check if Mock DB fallback is active
   if (process.env.USE_MOCK_DB === "true") {
+    const mockAdmins = readData(FILE_NAME);
     const admin = mockAdmins.find(
-      (a) => a.email === usernameOrEmail.toLowerCase() || a.username === usernameOrEmail
+      (a) => a.email === cleanUserOrEmail.toLowerCase() || a.username === cleanUserOrEmail
     );
 
     if (admin) {
@@ -126,6 +156,7 @@ const loginAdmin = async (req, res) => {
           _id: admin._id,
           username: admin.username,
           email: admin.email,
+          role: admin.role || "superadmin",
           token, // Kept for backward compatibility in standard clients
         });
       }
@@ -137,8 +168,8 @@ const loginAdmin = async (req, res) => {
     // Find admin by username or email
     const admin = await Admin.findOne({
       $or: [
-        { email: usernameOrEmail.toLowerCase() },
-        { username: usernameOrEmail }
+        { email: cleanUserOrEmail.toLowerCase() },
+        { username: cleanUserOrEmail }
       ],
     });
 
@@ -150,13 +181,14 @@ const loginAdmin = async (req, res) => {
         _id: admin._id,
         username: admin.username,
         email: admin.email,
+        role: admin.role,
         token, // Kept for backward compatibility in standard clients
       });
     } else {
       return res.status(401).json({ error: "Invalid username, email, or password" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred during authentication." });
   }
 };
 
@@ -182,7 +214,8 @@ const getAdminProfile = async (req, res) => {
     return res.json({
       _id: req.user?._id || "mock-admin-id-12345",
       username: req.user?.username || "admin",
-      email: req.user?.email || "admin@snortweb.com"
+      email: req.user?.email || "admin@snortweb.com",
+      role: req.user?.role || "superadmin",
     });
   }
 
@@ -194,8 +227,8 @@ const getAdminProfile = async (req, res) => {
       return res.status(404).json({ error: "Admin profile not found" });
     }
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "An error occurred while fetching the profile." });
   }
 };
 
-export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile, mockAdmins };
+export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile };
