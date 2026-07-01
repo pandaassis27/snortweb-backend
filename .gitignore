@@ -1,2 +1,21 @@
 node_modules/
 .env
+.env.*
+!.env.example
+
+logs/
+*.log
+
+coverage/
+
+dist/
+build/
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
+
+# Local database files
+data/
