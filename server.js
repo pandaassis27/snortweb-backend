@@ -11,6 +11,7 @@ import projectRoutes from "./routes/projectRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -207,12 +208,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+// API Routes
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Base route
 app.get("/", (req, res) => {

@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// Pre-packaged local knowledge base for Snortweb Technology in English and Hindi
 const localKnowledgeBase = {
   en: [
     {
@@ -46,13 +45,36 @@ const localKnowledgeBase = {
       keywords: ["नमस्ते", "हेलो", "हाय", "नमस्कार"],
       response: "नमस्ते! मैं स्नोर्टवेब एआई सहायक हूँ। आज मैं आपकी क्या मदद कर सकता हूँ? आप हमारी सुरक्षित वेब विकास सेवाओं, हाल के प्रोजेक्ट्स या सुरक्षा ऑडिट के बारे में पूछ सकते हैं।"
     }
+  ],
+  hinglish: [
+    {
+      keywords: ["kya", "kaam", "service", "banate", "offer", "sakte", "karti"],
+      response: "Snortweb Technology secure web development, cyber security audits aur premium UI/UX design mein expert hai. Hum blazing-fast React interfaces banate hain jo cyber attacks se fully protected hote hain."
+    },
+    {
+      keywords: ["project", "portfolio", "packzivo", "reyansh"],
+      response: "Hamare main projects hain: 1) Packzivo Packaging (live custom packaging builder), 2) Hotel Reyansh Pride (cafe analytics), aur 3) Reyansh Heights Real Estate. Sabhi projects military-grade security ke sath banaye gaye hain."
+    },
+    {
+      keywords: ["security", "safe", "hack", "cyber", "audit"],
+      response: "Security hamari top priority hai. Hum zero-trust backend, secure HTTP headers aur regular vulnerability scanning use karte hain taaki aapka data 100% safe rahe."
+    },
+    {
+      keywords: ["contact", "hire", "price", "paise", "kaise", "baat"],
+      response: "Aap hamare Contact page ke through inquiry bhej sakte hain. Hamari team 24 ghante ke andar aapse contact karegi custom quote ke sath."
+    },
+    {
+      keywords: ["hi", "hello", "hey", "namaste", "kaise ho", "haal"],
+      response: "Hello! Main Snortweb AI assistant hoon. Main aaj aapki kaise madad kar sakta hoon? Aap hamari services, projects ya security audits ke baare mein pooch sakte hain."
+    }
   ]
 };
 
 // Default fallback replies if keywords don't match
 const defaultReplies = {
   en: "I'm here to help with questions about Snortweb Technology's services, cybersecurity audits, or projects like Packzivo Packaging. Please feel free to ask or contact our team directly!",
-  hi: "मैं स्नोर्टवेब टेक्नोलॉजी की सेवाओं, साइबर सुरक्षा ऑडिट, या पैकजीवो पैकेजिंग जैसे प्रोजेक्ट्स के बारे में आपके प्रश्नों का उत्तर दे सकता हूँ। कृपया बेझिझक पूछें या हमारी टीम से संपर्क करें!"
+  hi: "मैं स्नोर्टवेब टेक्नोलॉजी की सेवाओं, साइबर सुरक्षा ऑडिट, या पैकजीवो पैकेजिंग जैसे प्रोजेक्ट्स के बारे में आपके प्रश्नों का उत्तर दे सकता हूँ। कृपया बेझिझक पूछें या हमारी टीम से संपर्क करें!",
+  hinglish: "Main Snortweb Technology ki services, projects aur cybersecurity ke baare mein aapke sawalon ka jawab de sakta hoon. Aap bejhijhak kuch bhi pooch sakte hain!"
 };
 
 export const handleChat = async (req, res) => {
@@ -87,7 +109,7 @@ Key details about Snortweb:
 - Services: Secure Web Development, Cyber Security Audits & Pentesting, Custom Cloud Architectures, Secure UI/UX Design.
 - Projects: Packzivo Packaging (custom bulk packaging builder & supply chain logistics tracker, fully live and secured), Hotel Reyansh Pride (dine-in order analytics and cafe dashboard, coming soon), Reyansh Heights (real estate architectural showcase, coming soon).
 - Pricing/Inquiries: Users can submit inquiries through the contact form, and the team will get in touch within 24 hours.
-Reply in the requested language: ${currentLang === "hi" ? "Hindi (हिंदी)" : "English"}. Keep responses concise, helpful, and professional (under 3 sentences).`;
+CRITICAL INSTRUCTION: Analyze the language of the User Message. If the user writes in Hinglish (Hindi written in English alphabet), you MUST reply in Hinglish. If they write in pure Hindi (Devanagari script), reply in Hindi. If they write in English, reply in English. Keep responses concise, helpful, and professional (under 3 sentences).`;
 
       const response = await fetch(
         `${targetApiUrl}?key=${encodeURIComponent(geminiKey)}`,
@@ -131,7 +153,18 @@ Reply in the requested language: ${currentLang === "hi" ? "Hindi (हिंद�
 
   // Local knowledge base fallback
   const lowercaseMsg = cleanMessage.toLowerCase();
-  const db = localKnowledgeBase[currentLang];
+  
+  // Basic language detection
+  let detectedLang = currentLang;
+  if (/[\u0900-\u097F]/.test(cleanMessage)) {
+    detectedLang = "hi";
+  } else if (/\b(kya|kaise|hoon|hai|kar|aap|hain|karti|sakte|tum|hum|mujhe|toh)\b/i.test(lowercaseMsg)) {
+    detectedLang = "hinglish";
+  } else {
+    detectedLang = "en";
+  }
+
+  const db = localKnowledgeBase[detectedLang] || localKnowledgeBase.en;
   let matchedReply = null;
 
   for (const item of db) {
@@ -144,18 +177,21 @@ Reply in the requested language: ${currentLang === "hi" ? "Hindi (हिंद�
 
   // Cross-language keyword fallback check
   if (!matchedReply) {
-    const alternativeDb = localKnowledgeBase[currentLang === "en" ? "hi" : "en"];
-    for (const item of alternativeDb) {
-      const matchesKeyword = item.keywords.some((kw) => lowercaseMsg.includes(kw));
-      if (matchesKeyword) {
-        // Find corresponding topic in current language
-        const topicIndex = alternativeDb.indexOf(item);
-        matchedReply = db[topicIndex]?.response;
-        break;
+    const alternativeLangs = ["en", "hi", "hinglish"].filter(l => l !== detectedLang);
+    for (const altLang of alternativeLangs) {
+      const alternativeDb = localKnowledgeBase[altLang];
+      for (const item of alternativeDb) {
+        const matchesKeyword = item.keywords.some((kw) => lowercaseMsg.includes(kw));
+        if (matchesKeyword) {
+          const topicIndex = alternativeDb.indexOf(item);
+          matchedReply = db[topicIndex]?.response;
+          break;
+        }
       }
+      if (matchedReply) break;
     }
   }
 
-  const reply = matchedReply || defaultReplies[currentLang];
+  const reply = matchedReply || defaultReplies[detectedLang] || defaultReplies.en;
   return res.json({ reply });
 };
