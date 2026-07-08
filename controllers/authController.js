@@ -20,7 +20,7 @@ const getJwtSecret = () => {
 // Helper to generate JWT token
 const generateToken = (id) => {
   return jwt.sign({ id }, getJwtSecret(), {
-    expiresIn: "30d",
+    expiresIn: "24h",
   });
 };
 
@@ -29,7 +29,7 @@ const setAuthCookie = (res, token) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
   });
 };
 

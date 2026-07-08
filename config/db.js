@@ -1,37 +1,86 @@
 import mongoose from "mongoose";
 import Admin from "../models/Admin.js";
 import Project from "../models/Project.js";
+import logger from "./logger.js";
+import { envConfig } from "./env.js";
+
+const MAX_RETRIES = 5;
+let currentRetry = 0;
+
+// Listeners for mongoose connection events
+mongoose.connection.on('connecting', () => {
+  logger.info('MongoDB connecting...');
+});
+
+mongoose.connection.on('disconnected', () => {
+  logger.warn('MongoDB disconnected! Attempting to reconnect...');
+});
+
+mongoose.connection.on('reconnected', () => {
+  logger.info('MongoDB reconnected successfully!');
+});
+
+mongoose.connection.on('error', (err) => {
+  logger.error(`MongoDB connection error: ${err.message}`);
+});
+
+import { MongoMemoryServer } from 'mongodb-memory-server';
+
+let mongod = null;
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/snortweb", {
-      serverSelectionTimeoutMS: 2000,
-    });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    process.env.USE_MOCK_DB = "false";
+    let finalUri = envConfig.mongoUri;
+
+    // Intercept localhost and provide a real in-memory MongoDB if local mongod is down
+    if (finalUri.includes('localhost') || finalUri.includes('127.0.0.1')) {
+      try {
+        logger.info("Attempting to connect to local MongoDB...");
+        // Try local first, timeout very quickly
+        await mongoose.connect(finalUri, { serverSelectionTimeoutMS: 2000 });
+      } catch (err) {
+        logger.warn("Local MongoDB not found. Spinning up real in-memory MongoDB instance...");
+        mongod = await MongoMemoryServer.create();
+        finalUri = mongod.getUri();
+      }
+    }
+
+    if (mongoose.connection.readyState === 0) {
+      const conn = await mongoose.connect(finalUri, {
+        serverSelectionTimeoutMS: 5000,
+        autoIndex: process.env.NODE_ENV !== 'production',
+        maxPoolSize: 10,
+        socketTimeoutMS: 45000,
+        family: 4
+      });
+      logger.info(`MongoDB Connected: ${conn.connection.host}`);
+    } else {
+      logger.info(`MongoDB Connected: ${mongoose.connection.host}`);
+    }
+        currentRetry = 0; // Reset retries on successful connection
 
     // Auto-seed admin if database is empty
     try {
       const adminCount = await Admin.countDocuments();
       if (adminCount === 0) {
-        console.log("No administrators found in MongoDB database. Seeding default superadmin account...");
+        logger.info("No administrators found in MongoDB database. Seeding default superadmin account...");
         await Admin.create({
           username: "admin",
           email: "admin@snortweb.com",
           password: "admin123", // Will be hashed automatically by pre-save hook
           role: "superadmin"
         });
-        console.log("Default superadmin successfully seeded: admin@snortweb.com / admin123");
+        logger.info("Default superadmin successfully seeded: admin@snortweb.com / admin123");
       }
     } catch (seedError) {
-      console.error("Failed to seed default admin user:", seedError.message);
+      logger.error(`Failed to seed default admin user: ${seedError.message}`);
     }
 
     // Auto-seed projects if database is empty
     try {
       const projectCount = await Project.countDocuments();
       if (projectCount === 0) {
-        console.log("No projects found in MongoDB database. Seeding default projects...");
+        logger.info("No projects found in MongoDB database. Seeding default projects...");
         await Project.create([
           {
             title: "Hotel Reyansh Pride",
@@ -56,19 +105,25 @@ const connectDB = async () => {
             liveUrl: "#",
           }
         ]);
-        console.log("Default projects successfully seeded.");
+        logger.info("Default projects successfully seeded.");
       }
     } catch (seedError) {
-      console.error("Failed to seed default projects:", seedError.message);
+      logger.error(`Failed to seed default projects: ${seedError.message}`);
     }
   } catch (error) {
-    console.warn(`==================================================`);
-    console.warn(`DATABASE ERROR: ${error.message}`);
-    console.warn(`MongoDB is not running at ${process.env.MONGO_URI || "mongodb://localhost:27017/snortweb"}`);
-    console.warn(`FALLING BACK TO IN-MEMORY MOCK DATABASE!`);
-    console.warn(`All additions/updates will be kept in memory.`);
-    console.warn(`==================================================`);
-    process.env.USE_MOCK_DB = "true";
+    logger.error(`DATABASE ERROR: ${error.message}`);
+    
+    if (currentRetry < MAX_RETRIES) {
+      currentRetry++;
+      logger.info(`Retrying MongoDB connection (${currentRetry}/${MAX_RETRIES}) in 3 seconds...`);
+      setTimeout(connectDB, 3000);
+    } else {
+      logger.error(`==================================================`);
+      logger.error(`MongoDB connection failed after ${MAX_RETRIES} retries.`);
+      logger.error(`Please ensure MongoDB is running at ${envConfig.mongoUri}`);
+      logger.error(`==================================================`);
+      process.exit(1);
+    }
   }
 };
 

@@ -1,18 +1,16 @@
 import express from "express";
+import { body } from "express-validator";
 import { handleChat } from "../controllers/chatController.js";
-import rateLimit from "express-rate-limit";
+import { chatLimiter } from "../middleware/rateLimiter.js";
+import { validate } from "../middleware/validationMiddleware.js";
 
 const router = express.Router();
 
-// Rate limiting for chatbot requests (max 40 requests per 15 minutes)
-const chatLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 40,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many chat messages, please try again after 15 minutes." }
-});
+const chatValidation = [
+  body('message').trim().notEmpty().withMessage('Message is required').isLength({ max: 1000 }).withMessage('Message is too long. Limit is 1000 characters.'),
+  body('language').optional().isIn(['en', 'hi', 'hinglish']).withMessage('Unsupported language parameter.'),
+];
 
-router.post("/", chatLimiter, handleChat);
+router.post("/", chatLimiter, chatValidation, validate, handleChat);
 
 export default router;

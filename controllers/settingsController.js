@@ -4,6 +4,8 @@ import Setting from "../models/Setting.js";
 // @route   GET /api/settings
 // @access  Public
 export const getSettings = async (req, res) => {
+
+
   try {
     let settings = await Setting.findOne();
     if (!settings) {
@@ -21,6 +23,8 @@ export const getSettings = async (req, res) => {
 // @route   PUT /api/settings
 // @access  Private (Admin only)
 export const updateSettings = async (req, res) => {
+
+
   try {
     const { socialLinks } = req.body;
 

@@ -2,18 +2,32 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
 import connectDB from "./config/db.js";
+import { envConfig } from "./config/env.js";
+import logger from "./config/logger.js";
+import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
+import { globalLimiter, authLimiter } from "./middleware/rateLimiter.js";
 import authRoutes from "./routes/authRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
+import path from "path";
+import { fileURLToPath } from "url";
 import chatRoutes from "./routes/chatRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
+import serviceRoutes from "./routes/serviceRoutes.js";
+import partnerRoutes from "./routes/partnerRoutes.js";
+import blogRoutes from "./routes/blogRoutes.js";
+import pageRoutes from "./routes/pageRoutes.js";
+import mediaRoutes from "./routes/mediaRoutes.js";
 
-// Load environment variables
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables (done in env.js as well, but kept here for early loading)
 dotenv.config();
 
 // Connect to MongoDB
@@ -25,14 +39,16 @@ const app = express();
 app.use(
   helmet({
     contentSecurityPolicy: {
+      useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", "http://localhost:*", "https://*"],
+        connectSrc: ["'self'", envConfig.frontendUrl, envConfig.adminUrl, "http://localhost:*", "https://*"],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -41,11 +57,15 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
+    xssFilter: true, // Adds X-XSS-Protection
+    hidePoweredBy: true, // Removes X-Powered-By
   })
 );
 
 // Secure CORS config
 const allowedOrigins = [
+  envConfig.frontendUrl,
+  envConfig.adminUrl,
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
@@ -60,6 +80,7 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        logger.warn(`Blocked CORS request from origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -67,6 +88,9 @@ app.use(
     optionsSuccessStatus: 200,
   })
 );
+
+// Compression Middleware (must be before body parsers for best effect on responses)
+app.use(compression());
 
 // Body Parser
 app.use(express.json({ limit: "10kb" })); // Restrict body size to prevent DoS
@@ -145,12 +169,6 @@ const csrfProtection = (req, res, next) => {
 
   const origin = req.headers.origin;
   const referer = req.headers.referer;
-  const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-  ];
 
   if (origin && !allowedOrigins.includes(origin)) {
     return res.status(403).json({ error: "CSRF Alert: Request origin is not authorized." });
@@ -181,70 +199,86 @@ app.use(csrfProtection);
 // Prevent NoSQL Injection
 app.use(mongoSanitize());
 
-// Rate Limiters
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 150,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests from this IP, please try again after 15 minutes." },
-});
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit to 20 attempts
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many authentication requests, please try again after 15 minutes." },
-});
-
 // Apply global rate limiter
 app.use(globalLimiter);
 
-// Log incoming requests (sanitized for security)
+// Log incoming requests using Winston
 app.use((req, res, next) => {
-  const sanitizedUrl = req.url.replace(/[^\w\s\-\/\?\&\=\.]/gi, "");
-  console.log(`[${new Date().toISOString()}] ${req.method} ${sanitizedUrl}`);
+  if (process.env.NODE_ENV !== 'test') {
+    const sanitizedUrl = req.url.replace(/[^\w\s\-\/\?\&\=\.]/gi, "");
+    logger.info(`Incoming Request: ${req.method} ${sanitizedUrl}`, {
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+  }
   next();
+});
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API Routes
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/inquiries", inquiryRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/inquiries", inquiryRoutes); // Specific limiters applied in route file
+app.use("/api/chat", chatRoutes); // Specific limiters applied in route file
 app.use("/api/settings", settingsRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/partners", partnerRoutes);
+app.use("/api/blogs", blogRoutes);
+app.use("/api/pages", pageRoutes);
+app.use("/api/media", mediaRoutes);
 
+// Static file serving for uploads
+app.use("/uploads", express.static(path.join(__dirname, "public", "uploads"), {
+  setHeaders: (res, path, stat) => {
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Content-Disposition", "inline");
+    res.set("Cache-Control", "public, max-age=31536000");
+  }
+}));
 // Base route
 app.get("/", (req, res) => {
   res.json({ message: "Snortweb Admin API is running..." });
 });
 
 // 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({ error: `Not found - ${req.originalUrl}` });
-});
+app.use(notFound);
 
 // Global error handler
-app.use((err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  console.error(`[ERROR] ${err.stack || err.message}`);
-  
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-    return res.status(400).json({ error: "Invalid JSON input." });
-  }
+app.use(errorHandler);
 
-  res.status(statusCode).json({
-    error: "An internal server error occurred.",
+const PORT = envConfig.port;
+
+const server = app.listen(PORT, () => {
+  logger.info(`==================================================`);
+  logger.info(`Snortweb Admin API Server is running in ${envConfig.nodeEnv} mode`);
+  logger.info(`Listening on http://localhost:${PORT}`);
+  logger.info(`==================================================`);
+});
+
+// Graceful Shutdown Handlers
+const gracefulShutdown = () => {
+  logger.info('Received kill signal, shutting down gracefully.');
+  server.close(() => {
+    logger.info('Closed out remaining connections.');
+    process.exit(0);
   });
-});
+  
+  // Force close after 10 seconds
+  setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
 
-const PORT = process.env.PORT || 5050;
-
-app.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(`Snortweb Admin API Server is running in ${process.env.NODE_ENV || "development"} mode`);
-  console.log(`Listening on http://localhost:${PORT}`);
-  console.log(`==================================================`);
-});
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
