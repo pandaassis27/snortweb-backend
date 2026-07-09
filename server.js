@@ -62,32 +62,52 @@ app.use(
   })
 );
 
-// Secure CORS config
+// =======================
+// Production CORS Config
+// =======================
+
 const allowedOrigins = [
+  "https://snortweb-frontend.vercel.app",
   envConfig.frontendUrl,
   envConfig.adminUrl,
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
   "http://localhost:5176",
-];
+].filter(Boolean);
+
+logger.info("Allowed Origins:");
+logger.info(allowedOrigins);
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like local requests or same-origin)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        logger.warn(`Blocked CORS request from origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
+    origin(origin, callback) {
+      // Allow server-to-server requests and health checks
+      if (!origin) {
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      logger.warn(`Blocked CORS request from origin: ${origin}`);
+
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "X-CSRF-Token",
+    ],
     optionsSuccessStatus: 200,
   })
 );
+
+app.options("*", cors());
 
 // Compression Middleware (must be before body parsers for best effect on responses)
 app.use(compression());
@@ -272,7 +292,7 @@ const gracefulShutdown = () => {
     logger.info('Closed out remaining connections.');
     process.exit(0);
   });
-  
+
   // Force close after 10 seconds
   setTimeout(() => {
     logger.error('Could not close connections in time, forcefully shutting down');
