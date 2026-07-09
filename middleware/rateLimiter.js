@@ -1,44 +1,107 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit from "express-rate-limit";
 
-// Utility to create limiters
+// Utility Function
 const createLimiter = (minutes, maxRequests, message) => {
   return rateLimit({
     windowMs: minutes * 60 * 1000,
     max: maxRequests,
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: { error: message },
-    // Trust proxy if you are behind a reverse proxy (Heroku, Bluemix, AWS ELB, Nginx, etc)
-    // You might need to set `app.set('trust proxy', 1);` in server.js
+
+    standardHeaders: true,
+    legacyHeaders: false,
+
+    message: {
+      success: false,
+      error: message,
+    },
+
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
+
+    handler: (req, res) => {
+      return res.status(429).json({
+        success: false,
+        error: message,
+      });
+    },
   });
 };
 
-export const globalLimiter = createLimiter(
-  15,
-  200,
-  "Too many requests from this IP, please try again after 15 minutes."
-);
+// ==========================================
+// Global Limiter
+// ==========================================
+export const globalLimiter =
+  process.env.NODE_ENV === "production"
+    ? createLimiter(
+      15,
+      500,
+      "Too many requests from this IP. Please try again after 15 minutes."
+    )
+    : createLimiter(
+      15,
+      5000,
+      "Development rate limit."
+    );
 
-export const authLimiter = createLimiter(
-  15,
-  20, // Strict limit for auth attempts
-  "Too many authentication attempts, please try again after 15 minutes."
-);
+// ==========================================
+// Login/Auth Limiter (Brute Force Protection)
+// ==========================================
+export const authLimiter =
+  process.env.NODE_ENV === "production"
+    ? createLimiter(
+      15,
+      20,
+      "Too many authentication attempts. Please try again after 15 minutes."
+    )
+    : createLimiter(
+      15,
+      500,
+      "Development auth limit."
+    );
 
-export const contactLimiter = createLimiter(
-  60,
-  5, // Very strict limit for contact forms to prevent spam
-  "Too many inquiries sent from this IP, please try again after an hour."
-);
+// ==========================================
+// Contact Form Limiter
+// ==========================================
+export const contactLimiter =
+  process.env.NODE_ENV === "production"
+    ? createLimiter(
+      60,
+      30,
+      "Too many inquiries sent from this IP. Please try again after an hour."
+    )
+    : createLimiter(
+      1,
+      1000,
+      "Development contact limit."
+    );
 
-export const chatLimiter = createLimiter(
-  1,
-  15, // 15 requests per minute for chatbot
-  "Chatbot rate limit exceeded. Please wait a moment."
-);
+// ==========================================
+// Chatbot Limiter
+// ==========================================
+export const chatLimiter =
+  process.env.NODE_ENV === "production"
+    ? createLimiter(
+      1,
+      60,
+      "Chatbot rate limit exceeded. Please wait a moment."
+    )
+    : createLimiter(
+      1,
+      1000,
+      "Development chatbot limit."
+    );
 
-export const apiLimiter = createLimiter(
-  1,
-  60, // 60 general API requests per minute
-  "API rate limit exceeded."
-);
+// ==========================================
+// General API Limiter
+// ==========================================
+export const apiLimiter =
+  process.env.NODE_ENV === "production"
+    ? createLimiter(
+      1,
+      300,
+      "API rate limit exceeded."
+    )
+    : createLimiter(
+      1,
+      5000,
+      "Development API limit."
+    );
