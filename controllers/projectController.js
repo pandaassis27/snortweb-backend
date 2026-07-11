@@ -1,5 +1,6 @@
 import Project from "../models/Project.js";
 import { readData, writeData } from "../config/localDb.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 const FILE_NAME = "projects.json";
 
@@ -40,6 +41,7 @@ const getProjects = async (req, res) => {
     const projects = await Project.find({}).sort({ createdAt: -1 });
     return res.json(projects);
   } catch (error) {
+    console.error("Error in getProjects:", error);
     return res.status(500).json({ error: "An error occurred while fetching projects." });
   }
 };
@@ -71,14 +73,29 @@ const getProjectById = async (req, res) => {
       return res.status(404).json({ error: "Project not found" });
     }
   } catch (error) {
-    return res.status(500).json({ error: "An error occurred while fetching the project." });
+
+    await logAudit({
+      req,
+      action: "CREATE",
+      resource: "PROJECT",
+      status: "failed",
+      details: {
+        reason: error.message,
+      },
+    });
+
+    return res.status(500).json({
+      error: "An error occurred while creating the project."
+    });
   }
-};
+}
 
 // @desc    Create a project
 // @route   POST /api/projects
 // @access  Private (Admin Only)
 const createProject = async (req, res) => {
+  console.log("========== PROJECT BODY ==========");
+  console.log(req.body);
   const { title, description, category, tags, imageUrl, liveUrl, githubUrl } = req.body;
 
   if (!title || !description || !category) {
@@ -98,8 +115,14 @@ const createProject = async (req, res) => {
     return res.status(400).json({ error: "Description must be between 10 and 2000 characters." });
   }
 
-  if (!isValidSafeUrl(imageUrl) || !isValidSafeUrl(liveUrl) || !isValidSafeUrl(githubUrl)) {
-    return res.status(400).json({ error: "Invalid URL provided. Only safe web links (http/https) are allowed." });
+  if (imageUrl !== undefined && !isValidSafeUrl(imageUrl)) {
+    return res.status(400).json({ error: "Invalid Image URL provided. Must be a safe web link (http/https) or left empty." });
+  }
+  if (liveUrl !== undefined && !isValidSafeUrl(liveUrl)) {
+    return res.status(400).json({ error: "Invalid Live Production URL provided. Must be a safe web link (http/https) or left empty." });
+  }
+  if (githubUrl !== undefined && !isValidSafeUrl(githubUrl)) {
+    return res.status(400).json({ error: "Invalid GitHub URL provided. Must be a safe web link (http/https) or left empty." });
   }
 
   // Ensure tags is an array of alphanumeric strings
@@ -164,12 +187,14 @@ const updateProject = async (req, res) => {
     return res.status(400).json({ error: "Description must be between 10 and 2000 characters." });
   }
 
-  if (
-    (imageUrl !== undefined && !isValidSafeUrl(imageUrl)) ||
-    (liveUrl !== undefined && !isValidSafeUrl(liveUrl)) ||
-    (githubUrl !== undefined && !isValidSafeUrl(githubUrl))
-  ) {
-    return res.status(400).json({ error: "Invalid URL provided. Only safe web links (http/https) are allowed." });
+  if (imageUrl !== undefined && !isValidSafeUrl(imageUrl)) {
+    return res.status(400).json({ error: "Invalid Image URL provided. Must be a safe web link (http/https) or left empty." });
+  }
+  if (liveUrl !== undefined && !isValidSafeUrl(liveUrl)) {
+    return res.status(400).json({ error: "Invalid Live Production URL provided. Must be a safe web link (http/https) or left empty." });
+  }
+  if (githubUrl !== undefined && !isValidSafeUrl(githubUrl)) {
+    return res.status(400).json({ error: "Invalid GitHub URL provided. Must be a safe web link (http/https) or left empty." });
   }
 
   let cleanTags = tags;
@@ -188,7 +213,7 @@ const updateProject = async (req, res) => {
       project.imageUrl = imageUrl !== undefined ? imageUrl : project.imageUrl;
       project.liveUrl = liveUrl !== undefined ? liveUrl : project.liveUrl;
       project.githubUrl = githubUrl !== undefined ? githubUrl : project.githubUrl;
-      
+
       writeData(FILE_NAME, mockProjects);
       return res.json(project);
     }

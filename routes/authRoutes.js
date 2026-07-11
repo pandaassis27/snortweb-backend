@@ -10,7 +10,13 @@ const router = express.Router();
 const registerValidation = [
   body('username').trim().isLength({ min: 3, max: 30 }).matches(/^[a-zA-Z0-9_-]+$/).withMessage('Invalid username format.'),
   body('email').trim().isEmail().isLength({ max: 100 }).withMessage('Valid email address is required.'),
-  body('password').isLength({ min: 8, max: 100 }).withMessage('Password must be between 8 and 100 characters.'),
+  body("password")
+    .isLength({ min: 12, max: 100 })
+    .withMessage("Password must be between 12 and 100 characters.")
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_\-+=])[A-Za-z\d@$!%*?&#^()_\-+=]{12,}$/)
+    .withMessage(
+      "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character."
+    ),
   body('role').optional().isIn(['admin', 'superadmin']).withMessage('Invalid role.'),
 ];
 

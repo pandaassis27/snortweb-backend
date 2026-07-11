@@ -1,4 +1,5 @@
 import fs from "fs";
+import fsPromises from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import Media from "../models/Media.js";
@@ -6,39 +7,63 @@ import Media from "../models/Media.js";
 export const uploadMedia = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
+      return res.status(400).json({
+        message: "No files uploaded",
+      });
     }
 
     const uploadedMedia = [];
 
     for (const file of req.files) {
-      const isImage = file.mimetype.startsWith("image/");
-      const isSvg = file.mimetype === "image/svg+xml";
       let webpUrl = null;
       let width = null;
       let height = null;
 
-      // Handle image compression and WebP conversion (skip SVG)
-      if (isImage && !isSvg) {
-        const ext = path.extname(file.originalname);
-        const webpFilename = file.filename.replace(ext, ".webp");
-        const webpPath = path.join(file.destination, webpFilename);
+      const isImage =
+        file.mimetype.startsWith("image/") &&
+        file.mimetype !== "image/svg+xml";
 
-        // Convert to webp and extract metadata
-        const metadata = await sharp(file.path)
-          .webp({ quality: 80 })
-          .toFile(webpPath)
-          .then(() => sharp(file.path).metadata());
+      // Image optimization
+      if (isImage) {
+        try {
+          const metadata = await sharp(file.path).metadata();
 
-        webpUrl = `/uploads/${webpFilename}`;
-        width = metadata.width;
-        height = metadata.height;
+          width = metadata.width;
+          height = metadata.height;
+
+          const webpFilename =
+            path.parse(file.filename).name + ".webp";
+
+          const webpPath = path.join(
+            file.destination,
+            webpFilename
+          );
+
+          await sharp(file.path)
+            .webp({ quality: 80 })
+            .toFile(webpPath);
+
+          webpUrl = `/uploads/${webpFilename}`;
+        } catch (err) {
+          await fsPromises.unlink(file.path).catch(() => { });
+          return res.status(400).json({
+            message: "Invalid or corrupted image uploaded.",
+          });
+        }
       }
 
       let type = "document";
-      if (isImage) type = "image";
-      else if (file.mimetype.includes("video")) type = "video";
-      else if (file.originalname.endsWith(".glb") || file.originalname.endsWith(".gltf")) type = "3d_model";
+
+      if (file.mimetype.startsWith("image/")) {
+        type = "image";
+      } else if (file.mimetype.startsWith("video/")) {
+        type = "video";
+      } else if (
+        file.mimetype === "model/gltf-binary" ||
+        file.mimetype === "model/gltf+json"
+      ) {
+        type = "3d_model";
+      }
 
       const mediaEntry = await Media.create({
         filename: file.filename,
@@ -48,35 +73,70 @@ export const uploadMedia = async (req, res) => {
         url: `/uploads/${file.filename}`,
         type,
         webpUrl,
-        dimensions: (width && height) ? { width, height } : undefined
+        dimensions:
+          width && height
+            ? {
+              width,
+              height,
+            }
+            : undefined,
       });
 
       uploadedMedia.push(mediaEntry);
     }
 
-    res.status(201).json(uploadedMedia);
+    return res.status(201).json(uploadedMedia);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Upload Error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
 export const deleteMedia = async (req, res) => {
   try {
     const media = await Media.findById(req.params.id);
-    if (!media) return res.status(404).json({ message: "Media not found" });
 
-    // Delete files from disk
-    const originalPath = path.join(process.cwd(), "public", media.url);
-    if (fs.existsSync(originalPath)) fs.unlinkSync(originalPath);
+    if (!media) {
+      return res.status(404).json({
+        message: "Media not found",
+      });
+    }
+
+    const originalPath = path.join(
+      process.cwd(),
+      "public",
+      media.url.replace(/^\/+/, "")
+    );
+
+    if (fs.existsSync(originalPath)) {
+      await fsPromises.unlink(originalPath).catch(() => { });
+    }
 
     if (media.webpUrl) {
-      const webpPath = path.join(process.cwd(), "public", media.webpUrl);
-      if (fs.existsSync(webpPath)) fs.unlinkSync(webpPath);
+      const webpPath = path.join(
+        process.cwd(),
+        "public",
+        media.webpUrl.replace(/^\/+/, "")
+      );
+
+      if (fs.existsSync(webpPath)) {
+        await fsPromises.unlink(webpPath).catch(() => { });
+      }
     }
 
     await Media.findByIdAndDelete(req.params.id);
-    res.json({ message: "Media deleted successfully" });
+
+    return res.json({
+      message: "Media deleted successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };

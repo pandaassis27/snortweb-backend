@@ -5,6 +5,7 @@ import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
 import connectDB from "./config/db.js";
 import { envConfig } from "./config/env.js";
 import logger from "./config/logger.js";
@@ -34,6 +35,11 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.disable("x-powered-by");
+
+
+// Trust Render reverse proxy
+app.set("trust proxy", 1);
 
 // Secure headers with Helmet
 app.use(
@@ -110,7 +116,18 @@ app.use(
 app.options("*", cors());
 
 // Compression Middleware (must be before body parsers for best effect on responses)
-app.use(compression());
+app.use(
+  compression({
+    level: 6,
+    threshold: 1024,
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // Body Parser
 app.use(express.json({ limit: "10kb" })); // Restrict body size to prevent DoS
@@ -150,15 +167,20 @@ const escapeString = (str) => {
     .trim();
 };
 
-const sanitizeInput = (data) => {
+const sanitizeInput = (data, key = "") => {
+  // Skip HTML escaping for URL fields to prevent breaking valid links and storing encoded slashes
+  if (typeof key === "string" && key.toLowerCase().endsWith("url")) {
+    return typeof data === "string" ? data.trim() : data;
+  }
+
   if (typeof data === "string") {
     return escapeString(data);
   } else if (Array.isArray(data)) {
-    return data.map((item) => sanitizeInput(item));
+    return data.map((item) => sanitizeInput(item, key));
   } else if (data !== null && typeof data === "object") {
     const cleaned = {};
-    for (const key in data) {
-      cleaned[key] = sanitizeInput(data[key]);
+    for (const k in data) {
+      cleaned[k] = sanitizeInput(data[k], k);
     }
     return cleaned;
   }
@@ -219,6 +241,12 @@ app.use(csrfProtection);
 // Prevent NoSQL Injection
 app.use(mongoSanitize());
 
+
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
+
+
+
 // Apply global rate limiter
 app.use(globalLimiter);
 
@@ -233,7 +261,12 @@ app.use((req, res, next) => {
   }
   next();
 });
-
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({

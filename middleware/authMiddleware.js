@@ -18,8 +18,8 @@ const protect = async (req, res, next) => {
   let token;
 
   // Retrieve token from either the cookies or authorization headers
-  if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
+  if (req.cookies && req.cookies.snortweb_auth) {
+    token = req.cookies.snortweb_auth;
   } else if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")

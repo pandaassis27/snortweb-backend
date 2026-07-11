@@ -1,3 +1,4 @@
+import { logAudit } from "../utils/auditLogger.js";
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
 import bcrypt from "bcryptjs";
@@ -25,11 +26,12 @@ const generateToken = (id) => {
 };
 
 const setAuthCookie = (res, token) => {
-  res.cookie("token", token, {
+  res.cookie("snortweb_auth", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    path: "/",
   });
 };
 
@@ -176,7 +178,16 @@ const loginAdmin = async (req, res) => {
     if (admin && (await admin.comparePassword(password))) {
       const token = generateToken(admin._id);
       setAuthCookie(res, token);
-
+      console.log("Calling Audit Logger...");
+      await logAudit({
+        req,
+        action: "LOGIN",
+        resource: "AUTH",
+        status: "success",
+        details: {
+          adminId: admin._id,
+        },
+      });
       return res.json({
         _id: admin._id,
         username: admin.username,
@@ -185,6 +196,15 @@ const loginAdmin = async (req, res) => {
         token, // Kept for backward compatibility in standard clients
       });
     } else {
+      await logAudit({
+        req,
+        action: "LOGIN",
+        resource: "AUTH",
+        status: "failed",
+        details: {
+          usernameOrEmail: cleanUserOrEmail,
+        },
+      });
       return res.status(401).json({ error: "Invalid username, email, or password" });
     }
   } catch (error) {
@@ -196,11 +216,12 @@ const loginAdmin = async (req, res) => {
 // @route   POST /api/auth/logout
 // @access  Private
 const logoutAdmin = async (req, res) => {
-  res.cookie("token", "", {
+  res.cookie("snortweb_auth", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     expires: new Date(0),
+    path: "/",
   });
   return res.json({ message: "Successfully logged out" });
 };
