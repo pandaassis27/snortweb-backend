@@ -6,8 +6,9 @@ import {
   createInquiry,
   updateInquiryStatus,
   deleteInquiry,
+  bulkDeleteInquiries,
 } from "../controllers/inquiryController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, admin, superadmin } from "../middleware/authMiddleware.js";
 import { contactLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validationMiddleware.js";
 
@@ -53,6 +54,8 @@ const inquiryValidation = [
     .isLength({ min: 1, max: 3000 })
     .withMessage("Message cannot exceed 3000 characters."),
 ];
+
+router.route("/bulk-delete").post(protect, superadmin, bulkDeleteInquiries);
 
 router
   .route("/")

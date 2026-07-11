@@ -15,6 +15,7 @@ import authRoutes from "./routes/authRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
+import auditRoutes from "./routes/auditRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import chatRoutes from "./routes/chatRoutes.js";
@@ -24,6 +25,7 @@ import partnerRoutes from "./routes/partnerRoutes.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import pageRoutes from "./routes/pageRoutes.js";
 import mediaRoutes from "./routes/mediaRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -279,6 +281,7 @@ app.get("/api/health", (req, res) => {
 
 // API Routes
 app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inquiries", inquiryRoutes); // Specific limiters applied in route file
@@ -289,6 +292,7 @@ app.use("/api/partners", partnerRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/pages", pageRoutes);
 app.use("/api/media", mediaRoutes);
+app.use("/api/audit-logs", auditRoutes);
 
 // Static file serving for uploads
 app.use("/uploads", express.static(path.join(__dirname, "public", "uploads"), {

@@ -1,5 +1,7 @@
 import Inquiry from "../models/Inquiry.js";
 import { readData, writeData } from "../config/localDb.js";
+import { logAudit } from "../utils/auditLogger.js";
+import logger from "../config/logger.js";
 
 const FILE_NAME = "inquiries.json";
 
@@ -21,9 +23,46 @@ const getInquiries = async (req, res) => {
   }
 
   try {
-    const inquiries = await Inquiry.find({}).sort({ createdAt: -1 });
-    return res.json(inquiries);
+    const { paginate, page = 1, limit = 10, search, read, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const isPaginated = paginate === "true";
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { subject: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (read !== undefined && read !== "") {
+      query.read = read === "true";
+    }
+
+    const sortConfig = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+    if (!isPaginated) {
+      const inquiries = await Inquiry.find(query).sort(sortConfig);
+      return res.json(inquiries);
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [inquiries, total] = await Promise.all([
+      Inquiry.find(query).sort(sortConfig).skip(skip).limit(limitNum),
+      Inquiry.countDocuments(query)
+    ]);
+
+    return res.json({
+      data: inquiries,
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (error) {
+    logger.error("Error in getInquiries: " + error.message);
     return res.status(500).json({ error: "An error occurred while fetching inquiries." });
   }
 };
@@ -224,10 +263,67 @@ const deleteInquiry = async (req, res) => {
   }
 };
 
+// @desc    Bulk delete inquiries
+// @route   POST /api/inquiries/bulk-delete
+// @access  Private (SuperAdmin)
+const bulkDeleteInquiries = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No inquiry IDs provided for deletion." });
+    }
+
+    // Validate IDs
+    for (const id of ids) {
+      if (!isValidId(id)) return res.status(400).json({ error: `Invalid ID format: ${id}` });
+    }
+
+    if (process.env.USE_MOCK_DB === "true") {
+      let mockInquiries = readData(FILE_NAME);
+      const initialLength = mockInquiries.length;
+      mockInquiries = mockInquiries.filter((p) => !ids.includes(p._id));
+      writeData(FILE_NAME, mockInquiries);
+      const deletedCount = initialLength - mockInquiries.length;
+      
+      logAudit({
+        req,
+        action: "BULK_DELETE_INQUIRIES",
+        resource: "INQUIRY",
+        status: "success",
+        details: { deletedCount, ids },
+      });
+      return res.json({ message: `${deletedCount} inquiries deleted successfully.` });
+    }
+
+    const result = await Inquiry.deleteMany({ _id: { $in: ids } });
+
+    logAudit({
+      req,
+      action: "BULK_DELETE_INQUIRIES",
+      resource: "INQUIRY",
+      status: "success",
+      details: { deletedCount: result.deletedCount, ids },
+    });
+
+    return res.json({ message: `${result.deletedCount} inquiries deleted successfully.` });
+  } catch (error) {
+    logger.error("Error in bulkDeleteInquiries: " + error.message);
+    logAudit({
+      req,
+      action: "BULK_DELETE_INQUIRIES",
+      resource: "INQUIRY",
+      status: "failed",
+      details: { error: error.message },
+    });
+    return res.status(500).json({ error: "An error occurred while bulk deleting inquiries." });
+  }
+};
+
 export {
   getInquiries,
   getInquiryById,
   createInquiry,
   updateInquiryStatus,
   deleteInquiry,
+  bulkDeleteInquiries,
 };

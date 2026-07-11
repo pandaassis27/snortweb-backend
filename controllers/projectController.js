@@ -1,6 +1,7 @@
 import Project from "../models/Project.js";
 import { readData, writeData } from "../config/localDb.js";
 import { logAudit } from "../utils/auditLogger.js";
+import logger from "../config/logger.js";
 
 const FILE_NAME = "projects.json";
 
@@ -38,10 +39,45 @@ const getProjects = async (req, res) => {
   }
 
   try {
-    const projects = await Project.find({}).sort({ createdAt: -1 });
-    return res.json(projects);
+    const { paginate, page = 1, limit = 10, search, category, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const isPaginated = paginate === "true";
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    const sortConfig = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+    if (!isPaginated) {
+      const projects = await Project.find(query).sort(sortConfig);
+      return res.json(projects);
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [projects, total] = await Promise.all([
+      Project.find(query).sort(sortConfig).skip(skip).limit(limitNum),
+      Project.countDocuments(query)
+    ]);
+
+    return res.json({
+      data: projects,
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (error) {
-    console.error("Error in getProjects:", error);
+    logger.error("Error in getProjects: " + error.message);
     return res.status(500).json({ error: "An error occurred while fetching projects." });
   }
 };
@@ -277,10 +313,67 @@ const deleteProject = async (req, res) => {
   }
 };
 
+// @desc    Bulk delete projects
+// @route   POST /api/projects/bulk-delete
+// @access  Private (SuperAdmin)
+const bulkDeleteProjects = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No project IDs provided for deletion." });
+    }
+
+    // Validate IDs
+    for (const id of ids) {
+      if (!isValidId(id)) return res.status(400).json({ error: `Invalid ID format: ${id}` });
+    }
+
+    if (process.env.USE_MOCK_DB === "true") {
+      let mockProjects = readData(FILE_NAME);
+      const initialLength = mockProjects.length;
+      mockProjects = mockProjects.filter((p) => !ids.includes(p._id));
+      writeData(FILE_NAME, mockProjects);
+      const deletedCount = initialLength - mockProjects.length;
+      
+      logAudit({
+        req,
+        action: "BULK_DELETE_PROJECTS",
+        resource: "PROJECT",
+        status: "success",
+        details: { deletedCount, ids },
+      });
+      return res.json({ message: `${deletedCount} projects deleted successfully.` });
+    }
+
+    const result = await Project.deleteMany({ _id: { $in: ids } });
+
+    logAudit({
+      req,
+      action: "BULK_DELETE_PROJECTS",
+      resource: "PROJECT",
+      status: "success",
+      details: { deletedCount: result.deletedCount, ids },
+    });
+
+    return res.json({ message: `${result.deletedCount} projects deleted successfully.` });
+  } catch (error) {
+    logger.error("Error in bulkDeleteProjects: " + error.message);
+    logAudit({
+      req,
+      action: "BULK_DELETE_PROJECTS",
+      resource: "PROJECT",
+      status: "failed",
+      details: { error: error.message },
+    });
+    return res.status(500).json({ error: "An error occurred while bulk deleting projects." });
+  }
+};
+
 export {
   getProjects,
   getProjectById,
   createProject,
   updateProject,
   deleteProject,
+  bulkDeleteProjects,
 };

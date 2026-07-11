@@ -3,6 +3,42 @@ import fsPromises from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import Media from "../models/Media.js";
+import logger from "../config/logger.js";
+
+// @desc    Get paginated media with search and filter
+// @route   GET /api/media
+// @access  Private (Admin)
+export const getMedia = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (req.query.search) {
+      query.originalName = { $regex: req.query.search, $options: "i" };
+    }
+    if (req.query.type && req.query.type !== "All") {
+      query.type = req.query.type;
+    }
+
+    const total = await Media.countDocuments(query);
+    const media = await Media.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      media,
+      page,
+      pages: Math.ceil(total / limit),
+      total,
+    });
+  } catch (error) {
+    logger.error("Get Media Error: " + error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export const uploadMedia = async (req, res) => {
   try {
@@ -87,7 +123,7 @@ export const uploadMedia = async (req, res) => {
 
     return res.status(201).json(uploadedMedia);
   } catch (error) {
-    console.error("Upload Error:", error);
+    logger.error("Upload Error: " + error.message);
 
     return res.status(500).json({
       message: "Server error",
@@ -105,10 +141,12 @@ export const deleteMedia = async (req, res) => {
       });
     }
 
+    const safeOriginalName = path.basename(media.url);
     const originalPath = path.join(
       process.cwd(),
       "public",
-      media.url.replace(/^\/+/, "")
+      "uploads",
+      safeOriginalName
     );
 
     if (fs.existsSync(originalPath)) {
@@ -116,10 +154,12 @@ export const deleteMedia = async (req, res) => {
     }
 
     if (media.webpUrl) {
+      const safeWebpName = path.basename(media.webpUrl);
       const webpPath = path.join(
         process.cwd(),
         "public",
-        media.webpUrl.replace(/^\/+/, "")
+        "uploads",
+        safeWebpName
       );
 
       if (fs.existsSync(webpPath)) {
@@ -133,7 +173,7 @@ export const deleteMedia = async (req, res) => {
       message: "Media deleted successfully",
     });
   } catch (error) {
-    console.error(error);
+    logger.error("Delete Media Error: " + error.message);
 
     return res.status(500).json({
       message: "Server error",

@@ -1,5 +1,7 @@
 import Review from "../models/Review.js";
 import { readData, writeData } from "../config/localDb.js";
+import { logAudit } from "../utils/auditLogger.js";
+import logger from "../config/logger.js";
 
 const FILE_NAME = "reviews.json";
 
@@ -21,9 +23,46 @@ const getReviews = async (req, res) => {
   }
 
   try {
-    const reviews = await Review.find({}).sort({ createdAt: -1 });
-    return res.json(reviews);
+    const { paginate, page = 1, limit = 10, search, approved, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const isPaginated = paginate === "true";
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { designation: { $regex: search, $options: "i" } },
+        { comment: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (approved !== undefined && approved !== "") {
+      query.approved = approved === "true";
+    }
+
+    const sortConfig = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+    if (!isPaginated) {
+      const reviews = await Review.find(query).sort(sortConfig);
+      return res.json(reviews);
+    }
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [reviews, total] = await Promise.all([
+      Review.find(query).sort(sortConfig).skip(skip).limit(limitNum),
+      Review.countDocuments(query)
+    ]);
+
+    return res.json({
+      data: reviews,
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    });
   } catch (error) {
+    logger.error("Error in getReviews: " + error.message);
     return res.status(500).json({ error: "An error occurred while fetching reviews." });
   }
 };
@@ -228,10 +267,67 @@ const deleteReview = async (req, res) => {
   }
 };
 
+// @desc    Bulk delete reviews
+// @route   POST /api/reviews/bulk-delete
+// @access  Private (SuperAdmin)
+const bulkDeleteReviews = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: "No review IDs provided for deletion." });
+    }
+
+    // Validate IDs
+    for (const id of ids) {
+      if (!isValidId(id)) return res.status(400).json({ error: `Invalid ID format: ${id}` });
+    }
+
+    if (process.env.USE_MOCK_DB === "true") {
+      let mockReviews = readData(FILE_NAME);
+      const initialLength = mockReviews.length;
+      mockReviews = mockReviews.filter((p) => !ids.includes(p._id));
+      writeData(FILE_NAME, mockReviews);
+      const deletedCount = initialLength - mockReviews.length;
+      
+      logAudit({
+        req,
+        action: "BULK_DELETE_REVIEWS",
+        resource: "REVIEW",
+        status: "success",
+        details: { deletedCount, ids },
+      });
+      return res.json({ message: `${deletedCount} reviews deleted successfully.` });
+    }
+
+    const result = await Review.deleteMany({ _id: { $in: ids } });
+
+    logAudit({
+      req,
+      action: "BULK_DELETE_REVIEWS",
+      resource: "REVIEW",
+      status: "success",
+      details: { deletedCount: result.deletedCount, ids },
+    });
+
+    return res.json({ message: `${result.deletedCount} reviews deleted successfully.` });
+  } catch (error) {
+    logger.error("Error in bulkDeleteReviews: " + error.message);
+    logAudit({
+      req,
+      action: "BULK_DELETE_REVIEWS",
+      resource: "REVIEW",
+      status: "failed",
+      details: { error: error.message },
+    });
+    return res.status(500).json({ error: "An error occurred while bulk deleting reviews." });
+  }
+};
+
 export {
   getReviews,
   getReviewById,
   createReview,
   updateReview,
   deleteReview,
+  bulkDeleteReviews,
 };
