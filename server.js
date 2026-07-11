@@ -77,6 +77,7 @@ app.use(
 const allowedOrigins = [
   "https://www.snortwebtechnology.com",
   "https://snortwebtechnology.com",
+  "https://admin.snortwebtechnology.com",
   "https://snortweb-frontend.vercel.app",
   envConfig.frontendUrl,
   envConfig.adminUrl,
