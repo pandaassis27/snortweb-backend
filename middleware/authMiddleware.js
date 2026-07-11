@@ -35,6 +35,17 @@ const protect = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, getJwtSecret());
 
+    // HARDCODED ADMIN CHECK
+    if (decoded.id === "hardcoded-admin-id-12345") {
+      req.user = {
+        _id: "hardcoded-admin-id-12345",
+        username: "admin",
+        email: "admin@snortweb.com",
+        role: "superadmin"
+      };
+      return next();
+    }
+
     // Check if Mock DB fallback is active
     if (process.env.USE_MOCK_DB === "true") {
       const mockAdmins = readData("admins.json");

