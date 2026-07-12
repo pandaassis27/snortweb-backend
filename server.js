@@ -283,6 +283,10 @@ app.get("/api/health", (req, res) => {
 });
 
 // API Routes
+app.use("/api", (req, res, next) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/projects", projectRoutes);
