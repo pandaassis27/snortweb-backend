@@ -11,7 +11,8 @@ const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("JWT_SECRET environment variable is missing!");
+      console.error("FATAL ERROR: JWT_SECRET environment variable is missing in production!");
+      process.exit(1);
     }
     return "snortweb_super_secret_jwt_key_12345";
   }
@@ -22,6 +23,7 @@ const getJwtSecret = () => {
 const generateToken = (id) => {
   return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: "24h",
+    algorithm: "HS256",
   });
 };
 
@@ -140,19 +142,6 @@ const loginAdmin = async (req, res) => {
   }
 
   const cleanUserOrEmail = String(usernameOrEmail).trim();
-  
-  // HARDCODED ADMIN CHECK
-  if (cleanUserOrEmail === "admin@snortweb.com" && password === "snort@@web@@technology!!") {
-    const token = generateToken("hardcoded-admin-id-12345");
-    setAuthCookie(res, token);
-    return res.json({
-      _id: "hardcoded-admin-id-12345",
-      username: "admin",
-      email: "admin@snortweb.com",
-      role: "superadmin",
-      token,
-    });
-  }
 
   // Check if Mock DB fallback is active
   if (process.env.USE_MOCK_DB === "true") {

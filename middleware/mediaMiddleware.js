@@ -21,7 +21,6 @@ const allowedExtensions = [
   ".mp4",
   ".glb",
   ".gltf",
-  ".svg",
 ];
 
 // Allowed MIME Types
@@ -34,7 +33,6 @@ const allowedMimeTypes = [
   "video/mp4",
   "model/gltf-binary",
   "model/gltf+json",
-  "image/svg+xml",
 ];
 
 // Storage

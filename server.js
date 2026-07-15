@@ -308,9 +308,13 @@ app.use("/api/audit-logs", auditRoutes);
 
 // Static file serving for uploads
 app.use("/uploads", express.static(path.join(__dirname, "public", "uploads"), {
-  setHeaders: (res, path, stat) => {
+  setHeaders: (res, filePath, stat) => {
     res.set("X-Content-Type-Options", "nosniff");
-    res.set("Content-Disposition", "inline");
+    if (filePath.endsWith(".svg") || filePath.endsWith(".SVG")) {
+      res.set("Content-Disposition", "attachment");
+    } else {
+      res.set("Content-Disposition", "inline");
+    }
     res.set("Cache-Control", "public, max-age=31536000");
   }
 }));
