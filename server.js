@@ -19,6 +19,7 @@ import auditRoutes from "./routes/auditRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import chatRoutes from "./routes/chatRoutes.js";
+import aiChatRoutes from "./routes/aiChatRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import partnerRoutes from "./routes/partnerRoutes.js";
@@ -298,6 +299,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/inquiries", inquiryRoutes); // Specific limiters applied in route file
 app.use("/api/chat", chatRoutes); // Specific limiters applied in route file
+app.use("/api/ai/chat", aiChatRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/partners", partnerRoutes);
