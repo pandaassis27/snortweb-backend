@@ -1,0 +1,93 @@
+[
+  {
+    "id": "kb_overview",
+    "category": "Company Overview",
+    "keywords": ["about", "who are you", "what is snortweb", "snortweb technology", "overview", "company"],
+    "synonyms": ["about us", "who we are"],
+    "content": "Snortweb Technology specializes in secure web development, comprehensive cybersecurity audits & pentesting, zero-trust cloud architectures, and premium UI/UX design. We build blazing-fast React interfaces embedded with defense-grade cybersecurity."
+  },
+  {
+    "id": "kb_services_main",
+    "category": "Services",
+    "keywords": ["services", "what do you do", "offer", "provide", "capabilities"],
+    "synonyms": ["offerings", "products"],
+    "content": "We offer four primary services: 1) Secure Web Development (React/Node.js), 2) Cyber Security Audits & Pentesting, 3) Custom Cloud Architectures, and 4) Secure UI/UX Design."
+  },
+  {
+    "id": "kb_portfolio",
+    "category": "Portfolio / Projects",
+    "keywords": ["project", "portfolio", "work", "packzivo", "reyansh", "past work", "examples"],
+    "synonyms": ["case studies", "apps built"],
+    "content": "Our featured portfolio includes: 1) Packzivo Packaging (a live, fully-secured custom bulk packaging builder & supply chain tracker), 2) Hotel Reyansh Pride (dine-in cafe analytics, coming soon), and 3) Reyansh Heights Real Estate (coming soon). All projects are built with military-grade logging and zero-trust backend authorization."
+  },
+  {
+    "id": "kb_security_services",
+    "category": "Security Services",
+    "keywords": ["security", "safe", "hack", "penetration", "cyber", "audit", "pentest"],
+    "synonyms": ["hacked", "cybersecurity"],
+    "content": "Security is built into our DNA. We implement military-grade penetration logging, secure HTTP headers, zero-trust backend authorization, and regular vulnerability scanning so that your digital assets are unbreakable."
+  },
+  {
+    "id": "kb_contact",
+    "category": "Contact Information",
+    "keywords": ["contact", "hire", "get in touch", "inquiry", "email", "phone", "reach out"],
+    "synonyms": ["talk to sales", "message"],
+    "content": "You can submit an inquiry through our Contact page. Our team typically gets back to clients within 24 hours."
+  },
+  {
+    "id": "kb_support_process",
+    "category": "Support Process",
+    "keywords": ["support", "help", "issue", "bug", "assistance"],
+    "synonyms": ["customer service"],
+    "content": "For support, existing clients can click the Reply button in the admin console to email us directly."
+  },
+  {
+    "id": "kb_pricing",
+    "category": "Pricing Guidance",
+    "keywords": ["pricing", "cost", "price", "how much", "budget", "quote"],
+    "synonyms": ["fees", "charge"],
+    "content": "[TODO: Information unavailable. We provide custom quotes within 24 hours based on project requirements. Please contact us for details.]"
+  },
+  {
+    "id": "kb_business_hours",
+    "category": "Business Hours",
+    "keywords": ["hours", "open", "time", "when", "business hours"],
+    "synonyms": ["timing", "schedule"],
+    "content": "[TODO: Business hours are currently not specified. Please use the contact form.]"
+  },
+  {
+    "id": "kb_technologies",
+    "category": "Technologies",
+    "keywords": ["tech stack", "technologies", "frameworks", "tools", "react", "node"],
+    "synonyms": ["stack", "software"],
+    "content": "Our core technology stack includes React.js, Node.js, Express, MongoDB, and TailwindCSS, strictly configured for high performance and enterprise-grade security."
+  },
+  {
+    "id": "kb_industries",
+    "category": "Industries Served",
+    "keywords": ["industries", "who do you work with", "sectors"],
+    "synonyms": ["clients", "niche"],
+    "content": "[TODO: Specific industries served list is unavailable. We have experience in packaging, real estate, and hospitality, but can adapt to any industry needing high security.]"
+  },
+  {
+    "id": "kb_faqs",
+    "category": "FAQs",
+    "keywords": ["faq", "frequently asked questions"],
+    "synonyms": ["questions"],
+    "content": "[TODO: Full FAQ list is currently being compiled.]"
+  },
+  {
+    "id": "kb_locations",
+    "category": "Locations",
+    "keywords": ["location", "where", "office", "address", "country", "city"],
+    "synonyms": ["headquarters", "based in"],
+    "content": "[TODO: Office location details are not publicly listed in this database. Please contact us for mailing addresses.]"
+  },
+  {
+    "id": "kb_policies",
+    "category": "Policies",
+    "keywords": ["policy", "terms", "privacy", "conditions", "refund"],
+    "synonyms": ["legal"],
+    "content": "[TODO: Specific company policies, Terms of Service, and Privacy Policies are currently undergoing legal review and are not available in the AI database.]"
+  }
+]

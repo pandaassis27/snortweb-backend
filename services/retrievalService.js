@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load the knowledge base once
-const kbPath = path.join(__dirname, '../data/knowledgeBase.json');
+const kbPath = path.join(__dirname, '../config/knowledgeBase.json');
 let knowledgeBase = [];
 
 try {
