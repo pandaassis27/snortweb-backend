@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { getSystemPrompt } from '../config/aiSystemPrompt.js';
 
+import { searchKnowledge } from '../services/retrievalService.js';
+
 // Prepare OpenAI instance (instantiated lazily or handled carefully)
 let openaiInstance = null;
 const getOpenAIClient = () => {
@@ -25,7 +27,7 @@ const generateChatCompletion = async (messages, modelConfig, res) => {
     model: modelConfig.model,
     messages: messages,
     stream: true,
-    temperature: 0.7,
+    temperature: 0.3, // Lower temperature for RAG (less hallucination)
     max_tokens: 300,
   });
 
@@ -73,10 +75,15 @@ export const handleAiChat = async (req, res) => {
     // Ensure the response isn't buffered by proxies
     res.flushHeaders(); 
 
-    // Build Messages Array
+    // --- RAG RETRIEVAL STEP ---
+    // Extract the latest user query for context search
+    const latestUserMessage = messages[messages.length - 1]?.text || "";
+    const retrievedContext = await searchKnowledge(latestUserMessage);
+
+    // Build Messages Array with injected context
     const systemMessage = {
       role: 'system',
-      content: getSystemPrompt(language)
+      content: getSystemPrompt(language, retrievedContext)
     };
 
     // Sanitize and map incoming history
