@@ -53,13 +53,16 @@ app.use(
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
-        connectSrc: ["'self'", envConfig.frontendUrl, envConfig.adminUrl, "http://localhost:*", "https://*"],
+        connectSrc: ["'self'", envConfig.frontendUrl, envConfig.adminUrl, "http://localhost:*"],
         frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: [],
       },
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
@@ -67,6 +70,7 @@ app.use(
     },
     xssFilter: true, // Adds X-XSS-Protection
     hidePoweredBy: true, // Removes X-Powered-By
+    noSniff: true, // Adds X-Content-Type-Options: nosniff
   })
 );
 
@@ -75,17 +79,18 @@ app.use(
 // =======================
 
 const allowedOrigins = [
-  "https://www.snortwebtechnology.com",
   "https://snortwebtechnology.com",
   "https://admin.snortwebtechnology.com",
-  "https://snortweb-frontend.vercel.app",
-  envConfig.frontendUrl,
-  envConfig.adminUrl,
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:5175",
-  "http://localhost:5176",
-].filter(Boolean);
+];
+
+if (process.env.NODE_ENV !== "production") {
+  allowedOrigins.push(
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176"
+  );
+}
 
 logger.info("Allowed Origins:");
 logger.info(allowedOrigins);
@@ -233,7 +238,7 @@ const csrfProtection = (req, res, next) => {
   }
 
   // If authenticated via cookie, require custom CSRF validation header
-  if (req.cookies && req.cookies.token) {
+  if (req.cookies && req.cookies.snortweb_auth) {
     if (!req.headers["x-requested-with"] && !req.headers["x-csrf-token"]) {
       return res.status(403).json({ error: "CSRF Alert: Verification headers missing." });
     }
