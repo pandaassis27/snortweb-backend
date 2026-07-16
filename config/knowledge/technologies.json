@@ -1,0 +1,48 @@
+[
+  {
+    "id": "tech_stack",
+    "category": "Technologies",
+    "keywords": [
+      "technology",
+      "technologies",
+      "tech stack",
+      "frameworks",
+      "tools",
+      "frontend",
+      "backend",
+      "database",
+      "cloud",
+      "deployment",
+      "react",
+      "node",
+      "express"
+    ],
+    "synonyms": [
+      "tech",
+      "software",
+      "stack"
+    ],
+    "title": "Our Technology Stack",
+    "icon": "⚙",
+    "content": "We utilize the latest enterprise-grade technologies for maximum performance and security.",
+    "list": [
+      "Frontend: React, Next.js, HTML, CSS, JavaScript, TypeScript, Tailwind CSS",
+      "Backend: Node.js, Express.js",
+      "Database: MongoDB",
+      "Deployment: Vercel, Render, Cloudflare",
+      "Security: OWASP ZAP, Burp Suite, Nmap, JWT, HTTPS, CSP"
+    ],
+    "details": "**Overview**: Our stack is specifically chosen to deliver lightning-fast response times (like this chatbot!) and unbreakable security.\n\nWe leverage Next.js for SEO-optimized frontend rendering, and Node.js with Express for scalable, secure backend microservices. Databases are hosted on secure MongoDB clusters.",
+    "actions": [
+      {
+        "label": "View Portfolio",
+        "url": "https://snortwebtechnology.com/projects"
+      }
+    ],
+    "relatedQuestions": [
+      "Website Development",
+      "Cyber Security",
+      "Recent Projects"
+    ]
+  }
+]

@@ -1,0 +1,39 @@
+[
+  {
+    "id": "port_main",
+    "category": "Portfolio",
+    "keywords": [
+      "portfolio",
+      "projects",
+      "recent projects",
+      "work",
+      "examples",
+      "case studies",
+      "industries"
+    ],
+    "synonyms": [
+      "past work",
+      "apps built"
+    ],
+    "title": "Our Portfolio",
+    "icon": "💼",
+    "content": "Explore our recent success stories across various industries.",
+    "list": [
+      "Packzivo Packaging (B2B Logistics)",
+      "Hotel Reyansh Pride (Hospitality)",
+      "Reyansh Heights (Real Estate)"
+    ],
+    "details": "**Packzivo Packaging**: A fully-secured custom bulk packaging builder & supply chain tracker with complex state management.\n\n**Hotel Reyansh Pride**: Dine-in cafe analytics and order dashboard featuring real-time updates and zero-trust authorization.\n\n**Reyansh Heights**: Real estate architectural showcase built with blazing-fast React transitions.",
+    "actions": [
+      {
+        "label": "View Portfolio",
+        "url": "https://snortwebtechnology.com/projects"
+      }
+    ],
+    "relatedQuestions": [
+      "What technologies do you use?",
+      "Website Development",
+      "Contact Team"
+    ]
+  }
+]

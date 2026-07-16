@@ -1,0 +1,51 @@
+[
+  {
+    "id": "sec_main",
+    "category": "Cyber Security",
+    "keywords": [
+      "security",
+      "cyber security",
+      "secure",
+      "audit",
+      "vapt",
+      "penetration testing",
+      "api security",
+      "web security",
+      "cloud security"
+    ],
+    "synonyms": [
+      "cybersecurity",
+      "hack prevention",
+      "pentesting",
+      "server hardening"
+    ],
+    "title": "Cyber Security & VAPT",
+    "icon": "🛡",
+    "content": "Security is built into our DNA. We implement defense-grade architectures and zero-trust protocols.",
+    "list": [
+      "Security Audit",
+      "Vulnerability Assessment (VAPT)",
+      "API Security",
+      "Cloud Security",
+      "Penetration Testing",
+      "Source Code Review",
+      "Server Hardening"
+    ],
+    "details": "**Overview**: We don't just build websites; we fortify them. Our security experts conduct rigorous testing against OWASP Top 10 vulnerabilities.\n\n**Features**: Penetration logging, secure HTTP headers, JWT-based zero-trust backend authorization, and regular vulnerability scanning.\n\n**Process**: Automated scanning followed by deep manual penetration testing by our ethical hackers.",
+    "actions": [
+      {
+        "label": "Learn More",
+        "url": "https://snortwebtechnology.com/services"
+      },
+      {
+        "label": "Book Consultation",
+        "url": "https://snortwebtechnology.com/contact"
+      }
+    ],
+    "relatedQuestions": [
+      "What is VAPT?",
+      "Do you review source code?",
+      "Technologies Used"
+    ]
+  }
+]

@@ -1,0 +1,123 @@
+[
+  {
+    "id": "serv_webdev",
+    "category": "Services",
+    "keywords": [
+      "website development",
+      "web development",
+      "web site",
+      "website",
+      "develop",
+      "development",
+      "developer",
+      "create website"
+    ],
+    "synonyms": [
+      "build website",
+      "make website",
+      "web dev"
+    ],
+    "title": "Website Development",
+    "icon": "🌐",
+    "content": "We build lightning-fast, ultra-secure websites tailored to your business needs.",
+    "list": [
+      "Business Website",
+      "Corporate Website",
+      "Ecommerce Website",
+      "Portfolio Website",
+      "Landing Page",
+      "Custom Web Application",
+      "Admin Dashboard",
+      "CMS Development"
+    ],
+    "details": "**Overview**: Snortweb Technology specializes in creating high-performance digital experiences. We use React, Node.js, and cutting-edge cloud architectures to ensure your website is fast, responsive, and secure.\n\n**Benefits**: Increased conversions, military-grade security, and a premium UI/UX design.\n\n**Timeline**: Typically 2-6 weeks depending on project complexity.\n\n**Support**: We provide 24/7 maintenance and dedicated post-launch support.",
+    "actions": [
+      {
+        "label": "View Services",
+        "url": "https://snortwebtechnology.com/services"
+      },
+      {
+        "label": "Book Consultation",
+        "url": "https://snortwebtechnology.com/contact"
+      }
+    ],
+    "relatedQuestions": [
+      "What technologies do you use?",
+      "How much does a website cost?",
+      "Do you provide hosting?"
+    ]
+  },
+  {
+    "id": "serv_uiux",
+    "category": "Services",
+    "keywords": [
+      "ui",
+      "ux",
+      "design",
+      "ui/ux",
+      "redesign",
+      "website redesign"
+    ],
+    "synonyms": [
+      "user interface",
+      "user experience",
+      "branding"
+    ],
+    "title": "UI/UX & Redesign",
+    "icon": "🎨",
+    "content": "We design stunning, user-centric interfaces that engage and convert visitors into loyal customers.",
+    "list": [
+      "Wireframing & Prototyping",
+      "User Journey Mapping",
+      "Website Redesign",
+      "Brand Identity"
+    ],
+    "details": "**Overview**: A beautiful website is nothing without a seamless user experience. We focus on modern design trends, accessibility, and conversion rate optimization (CRO).\n\n**Benefits**: Lower bounce rates, higher user engagement, and a memorable brand image.",
+    "actions": [
+      {
+        "label": "View Portfolio",
+        "url": "https://snortwebtechnology.com/projects"
+      }
+    ],
+    "relatedQuestions": [
+      "Can you redesign my existing website?",
+      "What is your design process?",
+      "View Portfolio"
+    ]
+  },
+  {
+    "id": "serv_maintenance",
+    "category": "Services",
+    "keywords": [
+      "maintenance",
+      "website maintenance",
+      "support",
+      "update website"
+    ],
+    "synonyms": [
+      "maintain",
+      "fix website"
+    ],
+    "title": "Website Maintenance",
+    "icon": "🔧",
+    "content": "Keep your digital assets secure and up-to-date with our comprehensive maintenance plans.",
+    "list": [
+      "24/7 Monitoring",
+      "Security Patching",
+      "Content Updates",
+      "Performance Optimization"
+    ],
+    "details": "**Overview**: Our maintenance plans ensure your website remains fast, secure, and fully operational without any downtime.\n\n**Benefits**: Peace of mind, protection against zero-day exploits, and continuous performance improvements.",
+    "actions": [
+      {
+        "label": "Contact Us",
+        "url": "https://snortwebtechnology.com/contact"
+      }
+    ],
+    "relatedQuestions": [
+      "Do you provide hosting?",
+      "Cyber Security Services",
+      "Contact Team"
+    ]
+  }
+]

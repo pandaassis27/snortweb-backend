@@ -1,0 +1,40 @@
+[
+  {
+    "id": "comp_about",
+    "category": "Company",
+    "keywords": [
+      "company",
+      "about",
+      "about us",
+      "who are you",
+      "mission",
+      "vision",
+      "why choose snortweb",
+      "why snortweb"
+    ],
+    "synonyms": [
+      "who we are",
+      "overview"
+    ],
+    "title": "About Snortweb Technology",
+    "icon": "🏢",
+    "content": "Snortweb Technology is a premier digital agency specializing in secure web development and cyber security.",
+    "list": [
+      "Mission: To build the most secure and performant digital experiences.",
+      "Vision: Leading the industry in zero-trust architectures.",
+      "Why Choose Us: We blend defense-grade security with premium UI/UX design."
+    ],
+    "details": "We don't just write code; we engineer solutions. Every project undergoes rigorous security audits and performance optimizations. Our team of expert developers and ethical hackers ensures your digital assets are both stunning and unbreakable.",
+    "actions": [
+      {
+        "label": "Contact Us",
+        "url": "https://snortwebtechnology.com/contact"
+      }
+    ],
+    "relatedQuestions": [
+      "Security Services",
+      "Portfolio",
+      "Free Consultation"
+    ]
+  }
+]

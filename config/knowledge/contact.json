@@ -1,0 +1,43 @@
+[
+  {
+    "id": "cont_main",
+    "category": "Contact",
+    "keywords": [
+      "contact",
+      "hire",
+      "get in touch",
+      "inquiry",
+      "email",
+      "phone",
+      "reach out",
+      "free consultation"
+    ],
+    "synonyms": [
+      "talk to sales",
+      "message",
+      "support",
+      "help"
+    ],
+    "title": "Contact & Support",
+    "icon": "📞",
+    "content": "Our Snortweb Solutions Team is ready to help you build something amazing.",
+    "list": [
+      "Free Consultation",
+      "Project Quotations",
+      "24/7 Client Support",
+      "Partnerships"
+    ],
+    "details": "You can reach us through our official contact page. Existing clients have access to priority 24/7 support via their admin console.\n\nOur team typically responds to all new inquiries within 24 hours.",
+    "actions": [
+      {
+        "label": "Contact Us",
+        "url": "https://snortwebtechnology.com/contact"
+      }
+    ],
+    "relatedQuestions": [
+      "Website Cost",
+      "Development Time",
+      "Services"
+    ]
+  }
+]

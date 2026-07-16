@@ -1,14 +1,7 @@
 import { searchKnowledge } from '../services/retrievalService.js';
 
-const fallbackReplies = {
-  en: "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details.",
-  hi: "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details.",
-  hinglish: "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details."
-};
-
 export const handleChat = async (req, res) => {
   const { message, language } = req.body;
-  const currentLang = language === "hi" ? "hi" : "en";
 
   if (!message || String(message).trim() === "") {
     return res.status(400).json({ error: "Message is required" });
@@ -16,35 +9,41 @@ export const handleChat = async (req, res) => {
 
   const cleanMessage = String(message).trim();
 
-  // Validate input constraints to prevent DoS/Overflows
   if (cleanMessage.length > 1000) {
     return res.status(400).json({ error: "Message is too long. Limit is 1000 characters." });
   }
 
-  if (language !== undefined && language !== "en" && language !== "hi") {
-    return res.status(400).json({ error: "Unsupported language parameter." });
-  }
-
-  // Language Detection
   const lowercaseMsg = cleanMessage.toLowerCase();
-  let detectedLang = currentLang;
-  if (/[\u0900-\u097F]/.test(cleanMessage)) {
-    detectedLang = "hi";
-  } else if (/\b(kya|kaise|hoon|hai|kar|aap|hain|karti|sakte|tum|hum|mujhe|toh)\b/i.test(lowercaseMsg)) {
-    detectedLang = "hinglish";
-  } else {
-    detectedLang = "en";
+
+  // Smart Pricing Rule
+  const pricingKeywords = ["price", "pricing", "budget", "quotation", "kitna", "kitne", "fees", "charges", "cost", "rate"];
+  if (pricingKeywords.some(keyword => lowercaseMsg.includes(keyword))) {
+    return res.json({
+      text: "Pricing depends on project requirements, features, complexity, timeline and security requirements.\n\nPlease contact our Snortweb Solutions Team for a free consultation and detailed quotation.\n\nContact Us:\nhttps://snortwebtechnology.com/contact",
+      actions: [{ label: "Contact Us", url: "https://snortwebtechnology.com/contact" }],
+      relatedQuestions: ["What services do you offer?", "How long does it take?", "Do you provide hosting?"]
+    });
   }
 
-  // Retrieve answers purely from local knowledge base
   const results = await searchKnowledge(cleanMessage);
 
   if (results && results.length > 0) {
-    return res.json({ text: results[0].content });
+    // Return the full rich payload of the top result
+    const topResult = results[0];
+    return res.json({
+      text: topResult.content,
+      title: topResult.title,
+      icon: topResult.icon,
+      list: topResult.list,
+      details: topResult.details,
+      actions: topResult.actions,
+      relatedQuestions: topResult.relatedQuestions
+    });
   }
 
-  // Exact requested fallback
-  const text = "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details.";
-  
-  return res.json({ text });
+  // Unknown Question Rule
+  return res.json({ 
+    text: "I don't have verified information about this yet.\n\nOur Snortweb Solutions Team can help you with accurate information.\n\nPlease contact us here\nhttps://snortwebtechnology.com/contact\n\nWe'll understand your requirements and get back to you with the correct information.",
+    actions: [{ label: "Contact Us", url: "https://snortwebtechnology.com/contact" }]
+  });
 };

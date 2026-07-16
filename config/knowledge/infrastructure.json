@@ -1,0 +1,38 @@
+[
+  {
+    "id": "infra_seo",
+    "category": "Infrastructure",
+    "keywords": [
+      "seo",
+      "hosting",
+      "domain",
+      "performance optimization",
+      "website optimization"
+    ],
+    "synonyms": [
+      "search engine optimization",
+      "server"
+    ],
+    "title": "SEO, Hosting & Optimization",
+    "icon": "🚀",
+    "content": "We provide end-to-end infrastructure services to ensure your website ranks high and loads fast.",
+    "list": [
+      "Technical SEO & On-Page SEO",
+      "Premium Cloud Hosting (Vercel, Render)",
+      "Domain Management",
+      "Global CDN Integration (Cloudflare)"
+    ],
+    "details": "**Performance Optimization**: We strictly aim for a 99+ Google Lighthouse score. We optimize images, minify assets, and use edge caching to ensure sub-second load times worldwide.\n\n**SEO**: Clean semantics, dynamic meta tags, and structured data ensure your site dominates search engine rankings.",
+    "actions": [
+      {
+        "label": "Learn More",
+        "url": "https://snortwebtechnology.com/services"
+      }
+    ],
+    "relatedQuestions": [
+      "Website Development",
+      "Technologies Used",
+      "Maintenance"
+    ]
+  }
+]
