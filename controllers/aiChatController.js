@@ -20,6 +20,8 @@ const getGeminiClient = () => {
 // Sleep utility for retries
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
 export const handleAiChat = async (req, res) => {
   const sendError = (statusCode, message) => {
     if (!res.headersSent) {
@@ -81,17 +83,19 @@ export const handleAiChat = async (req, res) => {
     let fullBotResponse = "";
     let retryCount = 0;
     const MAX_RETRIES = 1;
+    let currentModel = GEMINI_MODEL;
 
     // Retry and timeout logic wrapper
     const generateStreamWithRetry = async () => {
       while (retryCount <= MAX_RETRIES) {
         try {
+          logger.info(`[GEMINI REQUEST] Using model: ${currentModel}`);
           // Implementing request timeout wrapper via AbortController
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
 
           const stream = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash',
+            model: currentModel,
             contents: contents,
             config: {
               systemInstruction: systemInstruction,
@@ -112,11 +116,22 @@ export const handleAiChat = async (req, res) => {
           clearTimeout(timeoutId);
           return; // Success, break loop
         } catch (err) {
-          if (retryCount < MAX_RETRIES && (err.status === 429 || err.status === 503 || err.name === 'AbortError')) {
-            retryCount++;
-            logger.warn(`[GEMINI RETRY] Retrying request (Attempt ${retryCount})...`, { error: err.message });
-            await sleep(1000);
-            continue;
+          if (retryCount < MAX_RETRIES) {
+            // Handle 404 (Model not found) by falling back to gemini-2.0-flash
+            if (err.status === 404) {
+              retryCount++;
+              currentModel = "gemini-2.0-flash";
+              logger.warn(`[GEMINI RETRY] Model not found (404). Falling back to ${currentModel} (Attempt ${retryCount})...`);
+              await sleep(1000);
+              continue;
+            }
+            // Handle transient errors (429, 503, timeout)
+            if (err.status === 429 || err.status === 503 || err.name === 'AbortError') {
+              retryCount++;
+              logger.warn(`[GEMINI RETRY] Transient error. Retrying request (Attempt ${retryCount})...`, { status: err.status, name: err.name });
+              await sleep(1000);
+              continue;
+            }
           }
           throw err;
         }
@@ -124,6 +139,7 @@ export const handleAiChat = async (req, res) => {
     };
 
     await generateStreamWithRetry();
+    logger.info(`[GEMINI SUCCESS] Stream completed successfully with model: ${currentModel}`);
 
     res.write("data: [DONE]\n\n");
     res.end();

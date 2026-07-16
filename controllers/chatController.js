@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
 const localKnowledgeBase = {
   en: [
     {
@@ -98,10 +100,10 @@ export const handleChat = async (req, res) => {
 
   const geminiKey = process.env.GEMINI_API_KEY;
 
-  if (geminiKey) {
+    if (geminiKey) {
     try {
-      // Connect to Google Gemini API (SSRF Safe URL)
-      const targetApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+      let currentModel = GEMINI_MODEL;
+      let targetApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent`;
       
       const systemPrompt = `You are Snortweb AI Assistant, a friendly and professional cybersecurity and web development expert assistant for Snortweb Technology.
 Snortweb Technology specializes in building ultra-premium, blazing-fast React and Node.js digital interfaces embedded with defense-grade cybersecurity, penetration logging, and zero-trust architectures.
@@ -111,30 +113,48 @@ Key details about Snortweb:
 - Pricing/Inquiries: Users can submit inquiries through the contact form, and the team will get in touch within 24 hours.
 CRITICAL INSTRUCTION: Analyze the language of the User Message. If the user writes in Hinglish (Hindi written in English alphabet), you MUST reply in Hinglish. If they write in pure Hindi (Devanagari script), reply in Hindi. If they write in English, reply in English. Keep responses concise, helpful, and professional (under 3 sentences).`;
 
-      const response = await fetch(
+      const requestBody = JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: systemPrompt },
+              { text: `User Message: ${cleanMessage}` }
+            ]
+          }
+        ],
+        generationConfig: {
+          maxOutputTokens: 150,
+          temperature: 0.7
+        }
+      });
+
+      let response = await fetch(
         `${targetApiUrl}?key=${encodeURIComponent(geminiKey)}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: systemPrompt },
-                  { text: `User Message: ${cleanMessage}` }
-                ]
-              }
-            ],
-            generationConfig: {
-              maxOutputTokens: 150,
-              temperature: 0.7
-            }
-          })
+          body: requestBody
         }
       );
+
+      if (response.status === 404) {
+        console.warn(`[CHAT AI HTTP ERROR] Model ${currentModel} not found (404). Retrying with gemini-2.0-flash...`);
+        currentModel = "gemini-2.0-flash";
+        targetApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent`;
+        response = await fetch(
+          `${targetApiUrl}?key=${encodeURIComponent(geminiKey)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: requestBody
+          }
+        );
+      }
 
       if (response.ok) {
         const data = await response.json();

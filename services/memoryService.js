@@ -6,6 +6,8 @@ import { getSystemPrompt } from "../config/aiSystemPrompt.js";
 // Rough token estimation: 1 token ~= 4 chars
 const estimateTokens = (text) => Math.ceil((text || "").length / 4);
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
 let geminiInstance = null;
 const getGeminiClient = () => {
   if (!geminiInstance) {
@@ -134,14 +136,34 @@ export const memoryService = {
   async generateTitle(conversationId, firstMessageContent) {
     try {
       const ai = getGeminiClient();
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: firstMessageContent,
-        config: {
-          systemInstruction: { parts: [{ text: "Generate a short, maximum 4-word title for this user message. No quotes." }] },
-          maxOutputTokens: 10
+      let currentModel = GEMINI_MODEL;
+      let response = null;
+
+      try {
+        response = await ai.models.generateContent({
+          model: currentModel,
+          contents: firstMessageContent,
+          config: {
+            systemInstruction: { parts: [{ text: "Generate a short, maximum 4-word title for this user message. No quotes." }] },
+            maxOutputTokens: 10
+          }
+        });
+      } catch (err) {
+        if (err.status === 404) {
+          console.warn(`[GEMINI RETRY] Title generation: Model ${currentModel} not found. Retrying with gemini-2.0-flash...`);
+          currentModel = "gemini-2.0-flash";
+          response = await ai.models.generateContent({
+            model: currentModel,
+            contents: firstMessageContent,
+            config: {
+              systemInstruction: { parts: [{ text: "Generate a short, maximum 4-word title for this user message. No quotes." }] },
+              maxOutputTokens: 10
+            }
+          });
+        } else {
+          throw err;
         }
-      });
+      }
       
       const title = response.text.trim();
       
@@ -172,14 +194,34 @@ export const memoryService = {
       
       const prompt = `Previous Summary: ${conv.summary}\n\nConversation:\n${conversationText}`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          systemInstruction: { parts: [{ text: "You are an AI assistant. Summarize the following conversation history comprehensively but concisely, keeping key facts, user preferences, and important context. If there is a previous summary, update it." }] },
-          maxOutputTokens: 300
+      let currentModel = GEMINI_MODEL;
+      let response = null;
+
+      try {
+        response = await ai.models.generateContent({
+          model: currentModel,
+          contents: prompt,
+          config: {
+            systemInstruction: { parts: [{ text: "You are an AI assistant. Summarize the following conversation history comprehensively but concisely, keeping key facts, user preferences, and important context. If there is a previous summary, update it." }] },
+            maxOutputTokens: 300
+          }
+        });
+      } catch (err) {
+        if (err.status === 404) {
+          console.warn(`[GEMINI RETRY] Summarization: Model ${currentModel} not found. Retrying with gemini-2.0-flash...`);
+          currentModel = "gemini-2.0-flash";
+          response = await ai.models.generateContent({
+            model: currentModel,
+            contents: prompt,
+            config: {
+              systemInstruction: { parts: [{ text: "You are an AI assistant. Summarize the following conversation history comprehensively but concisely, keeping key facts, user preferences, and important context. If there is a previous summary, update it." }] },
+              maxOutputTokens: 300
+            }
+          });
+        } else {
+          throw err;
         }
-      });
+      }
 
       const newSummary = response.text.trim();
       
