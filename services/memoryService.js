@@ -1,24 +1,22 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { getSystemPrompt } from "../config/aiSystemPrompt.js";
 
 // Rough token estimation: 1 token ~= 4 chars
 const estimateTokens = (text) => Math.ceil((text || "").length / 4);
 
-let openaiInstance = null;
-const getOpenAIClient = () => {
-  if (!openaiInstance) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured.");
+let geminiInstance = null;
+const getGeminiClient = () => {
+  if (!geminiInstance) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured.");
     }
-    openaiInstance = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 15000,
-      maxRetries: 2,
+    geminiInstance = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
     });
   }
-  return openaiInstance;
+  return geminiInstance;
 };
 
 export const memoryService = {
@@ -52,7 +50,7 @@ export const memoryService = {
 
     const msg = await Message.create({
       conversationId,
-      role,
+      role, // 'user' or 'assistant'
       content,
       tokenCount: tokens,
       metadata
@@ -70,40 +68,27 @@ export const memoryService = {
   },
 
   /**
-   * Builds the final messages array for OpenAI
+   * Builds the final messages array for Gemini
    */
   async buildContext(conversationId, ragContextBlocks, latestUserMessage, language) {
     const conv = await Conversation.findOne({ conversationId });
     const summary = conv?.summary || "";
 
-    // 1. System Prompt (without RAG injected directly into it, to preserve order requested)
+    // Build the systemInstruction combining System Prompt -> Summary -> RAG
     const baseSystemPrompt = getSystemPrompt(language, []).replace(/<CONTEXT>[\s\S]*?<\/CONTEXT>/, "").trim();
     
-    const messages = [];
+    let systemText = baseSystemPrompt;
 
-    messages.push({
-      role: "system",
-      content: baseSystemPrompt
-    });
-
-    // 2. Conversation Summary
     if (summary) {
-      messages.push({
-        role: "system",
-        content: `Conversation Summary: ${summary}`
-      });
+      systemText += `\n\nConversation Summary: ${summary}`;
     }
 
-    // 3. RAG Context
     if (ragContextBlocks && ragContextBlocks.length > 0) {
       const contextString = ragContextBlocks.map(c => `[${c.category}]: ${c.content}`).join('\n');
-      messages.push({
-        role: "system",
-        content: `<CONTEXT>\n${contextString}\n</CONTEXT>`
-      });
+      systemText += `\n\n<CONTEXT>\n${contextString}\n</CONTEXT>`;
     }
 
-    // 4. Recent Messages (Context Pruning - last ~2000 tokens)
+    // Recent Messages (Context Pruning - last ~2000 tokens)
     const recentMessages = [];
     let currentTokens = 0;
     const MAX_RECENT_TOKENS = 2000;
@@ -122,22 +107,25 @@ export const memoryService = {
       if (currentTokens + m.tokenCount > MAX_RECENT_TOKENS) {
         break;
       }
+      
+      // Map 'assistant' to 'model' for Gemini
       recentMessages.unshift({
-        role: m.role,
-        content: m.content
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
       });
       currentTokens += m.tokenCount;
     }
 
-    messages.push(...recentMessages);
-
-    // 5. Latest User Message
-    messages.push({
+    // Append Latest User Message
+    recentMessages.push({
       role: "user",
-      content: latestUserMessage
+      parts: [{ text: latestUserMessage }]
     });
 
-    return messages;
+    return {
+      systemInstruction: { parts: [{ text: systemText }] },
+      contents: recentMessages
+    };
   },
 
   /**
@@ -145,24 +133,24 @@ export const memoryService = {
    */
   async generateTitle(conversationId, firstMessageContent) {
     try {
-      const openai = getOpenAIClient();
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "Generate a short, maximum 4-word title for this user message. No quotes." },
-          { role: "user", content: firstMessageContent }
-        ],
-        max_tokens: 10
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: firstMessageContent,
+        config: {
+          systemInstruction: { parts: [{ text: "Generate a short, maximum 4-word title for this user message. No quotes." }] },
+          maxOutputTokens: 10
+        }
       });
       
-      const title = response.choices[0].message.content.trim();
+      const title = response.text.trim();
       
       await Conversation.findOneAndUpdate(
         { conversationId },
         { title }
       );
     } catch (err) {
-      console.error("Failed to generate title:", err.message);
+      console.error("[GEMINI] Failed to generate title:", err.message);
     }
   },
 
@@ -174,39 +162,33 @@ export const memoryService = {
       const conv = await Conversation.findOne({ conversationId });
       if (!conv) return;
 
-      // Threshold: e.g. > 4000 tokens
       const TOKEN_THRESHOLD = 4000;
-      
       if (conv.totalTokens < TOKEN_THRESHOLD) return;
 
-      // Fetch all messages
       const messages = await Message.find({ conversationId }).sort({ createdAt: 1 });
-      
-      const openai = getOpenAIClient();
-      
       const conversationText = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
       
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are an AI assistant. Summarize the following conversation history comprehensively but concisely, keeping key facts, user preferences, and important context. If there is a previous summary, update it." },
-          { role: "user", content: `Previous Summary: ${conv.summary}\n\nConversation:\n${conversationText}` }
-        ],
-        max_tokens: 300
+      const ai = getGeminiClient();
+      
+      const prompt = `Previous Summary: ${conv.summary}\n\nConversation:\n${conversationText}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction: { parts: [{ text: "You are an AI assistant. Summarize the following conversation history comprehensively but concisely, keeping key facts, user preferences, and important context. If there is a previous summary, update it." }] },
+          maxOutputTokens: 300
+        }
       });
 
-      const newSummary = response.choices[0].message.content.trim();
+      const newSummary = response.text.trim();
       
       conv.summary = newSummary;
-      // We don't delete messages, but we reset totalTokens since the summary covers them
-      // Next time summarize is triggered, it will summarize based on new messages.
-      // Wait, if we keep totalTokens as is, it will trigger every time. 
-      // Let's reset totalTokens to just the summary tokens + recent messages tokens, or 0.
       conv.totalTokens = estimateTokens(newSummary);
       await conv.save();
 
     } catch (err) {
-      console.error("Failed to summarize conversation:", err.message);
+      console.error("[GEMINI] Failed to summarize conversation:", err.message);
     }
   },
 
