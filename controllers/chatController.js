@@ -40,11 +40,11 @@ export const handleChat = async (req, res) => {
   const results = await searchKnowledge(cleanMessage);
 
   if (results && results.length > 0) {
-    return res.json({ reply: results[0].content });
+    return res.json({ text: results[0].content });
   }
 
   // Exact requested fallback
-  const reply = "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details.";
+  const text = "Sorry, I don't have information about that yet. Please contact Snortweb Technology for more details.";
   
-  return res.json({ reply });
+  return res.json({ text });
 };

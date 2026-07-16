@@ -34,9 +34,9 @@ export const searchKnowledge = async (query) => {
   if (!query || knowledgeBase.length === 0) return [];
 
   const normalizedQuery = normalize(query);
-  const queryTokens = normalizedQuery.split(/\s+/).filter(t => t.length > 2); // basic stopwords filter
+  const queryTokens = normalizedQuery.split(/\s+/).filter(t => t.length >= 2); // basic stopwords filter
 
-  if (queryTokens.length === 0 && normalizedQuery.length < 3) return [];
+  if (queryTokens.length === 0 && normalizedQuery.length < 2) return [];
 
   // Scoring function
   const scoredKB = knowledgeBase.map(entry => {

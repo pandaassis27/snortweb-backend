@@ -1,5 +1,12 @@
 [
   {
+    "id": "kb_greeting",
+    "category": "Greeting",
+    "keywords": ["hi", "hello", "hey", "greetings", "namaste"],
+    "synonyms": ["welcome"],
+    "content": "Hello! Welcome to Snortweb Technology. I am the Snortweb assistant. How can I help you today? You can ask me about our secure web development services, recent projects, or cybersecurity audits."
+  },
+  {
     "id": "kb_overview",
     "category": "Company Overview",
     "keywords": ["about", "who are you", "what is snortweb", "snortweb technology", "overview", "company"],
