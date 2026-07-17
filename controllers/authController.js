@@ -314,44 +314,49 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
-// @desc    Temp script to update admin
-// @route   GET /api/auth/temp-reset
+// @desc    Temp script to inspect admin state on production
+// @route   GET /api/auth/inspect-admin
 // @access  Public
-const tempResetAdmin = async (req, res) => {
+const inspectAdmin = async (req, res) => {
   try {
-    const admin = await Admin.findOne({ 
-      $or: [
-        { email: 'admin@snortweb.com' },
-        { email: 'admin@snortwebtechnology.com' },
-        { username: 'admin' }
-      ]
-    });
+    const admin = await Admin.findOne({ email: 'admin@snortweb.com' });
 
     if (!admin) {
-      return res.status(404).json({ error: "Admin user not found." });
+      return res.json({
+        "Found": "NO",
+      });
     }
 
-    // Update fields
-    admin.email = 'admin@snortwebtechnology.com';
-    admin.username = 'admin';
-    admin.password = '2222062719'; // The schema pre('save') hook will hash it
+    let hashStartsWith = "unknown format";
+    if (admin.password) {
+      if (admin.password.startsWith("$2b$") || admin.password.startsWith("$2a$")) {
+        hashStartsWith = admin.password.substring(0, 4);
+      } else {
+        // It's likely plaintext
+        hashStartsWith = admin.password.substring(0, 8);
+      }
+    }
 
-    await admin.save();
+    const isBcrypt = admin.password && (admin.password.startsWith("$2b$") || admin.password.startsWith("$2a$"));
+    let passwordMatch = "N/A (Plaintext)";
     
-    // Verify
-    const lookupByEmail = await Admin.findOne({ email: 'admin@snortwebtechnology.com' });
-    const lookupByUsername = await Admin.findOne({ username: 'admin' });
-    const isMatch = await lookupByEmail.comparePassword('2222062719');
-    
+    if (isBcrypt) {
+      const match = await bcrypt.compare("admin123", admin.password);
+      passwordMatch = match ? "YES" : "NO";
+    }
+
     return res.json({
-      success: true,
-      emailLookupWorks: !!lookupByEmail,
-      usernameLookupWorks: !!lookupByUsername,
-      bcryptCompareReturnsTrue: isMatch,
+      "Found": "YES",
+      "Email": admin.email,
+      "Username": admin.username,
+      "Role": admin.role,
+      "isActive": admin.isActive !== undefined ? admin.isActive : "undefined",
+      "Password Hash Starts With": hashStartsWith,
+      "Password Match": passwordMatch,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 };
 
-export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile, tempResetAdmin };
+export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile, inspectAdmin };
