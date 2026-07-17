@@ -349,15 +349,26 @@ const inspectAdmin = async (req, res) => {
 
     if (!admin) {
       return res.json({
-        "Found": "NO",
+        userFound: false
       });
     }
 
     const isMatch = await bcrypt.compare(password, admin.password);
+    
+    const response = {
+      userFound: true,
+      passwordMatch: isMatch,
+      storedHashPrefix: admin.password ? admin.password.substring(0, 4) : "N/A",
+      hashLength: admin.password ? admin.password.length : 0
+    };
 
-    return res.json({
-      "Password Match": isMatch ? "YES" : "NO"
-    });
+    if (!isMatch) {
+      const newHash = await bcrypt.hash(password, 10);
+      response.newHashPrefix = newHash.substring(0, 10);
+      response.storedHashPrefix10 = admin.password ? admin.password.substring(0, 10) : "N/A";
+    }
+
+    return res.json(response);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
