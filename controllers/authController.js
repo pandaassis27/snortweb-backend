@@ -187,6 +187,16 @@ const loginAdmin = async (req, res) => {
   }
 
   try {
+    const safeBody = { ...req.body, password: "***" };
+    console.log("========== LOGIN TRACE ==========");
+    console.log("req.body:", safeBody);
+    console.log("usernameOrEmail:", usernameOrEmail);
+    console.log("typeof usernameOrEmail:", typeof usernameOrEmail);
+    console.log("typeof password:", typeof password);
+    console.log("password.length:", password?.length);
+    console.log("password === password.trim():", password === password?.trim());
+    console.log("=================================");
+
     // Find admin by username or email
     const admin = await Admin.findOne({
       $or: [
@@ -195,10 +205,20 @@ const loginAdmin = async (req, res) => {
       ],
     });
 
+    console.log("User Found:", admin ? "YES" : "NO");
+
     if (admin) {
+      console.log("email:", admin.email);
+      console.log("username:", admin.username);
       if (isDebug) console.log("[DEBUG_AUTH] User found in MongoDB: YES");
       
+      console.log("Calling comparePassword");
       const isMatch = await admin.comparePassword(password);
+      console.log("isMatch:", isMatch);
+      if (!isMatch) {
+        console.log("Buffer.from(password).toString('hex'):", Buffer.from(password).toString("hex"));
+      }
+      
       if (isDebug) console.log("[DEBUG_AUTH] Password match:", isMatch ? "YES" : "NO");
 
       if (isMatch) {
