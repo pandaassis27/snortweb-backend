@@ -142,6 +142,13 @@ const loginAdmin = async (req, res) => {
   }
 
   const cleanUserOrEmail = String(usernameOrEmail).trim();
+  const isDebug = process.env.DEBUG_AUTH === "true" || process.env.NODE_ENV === "development";
+
+  if (isDebug) {
+    console.log("==================================================");
+    console.log("[DEBUG_AUTH] Login request received");
+    console.log("[DEBUG_AUTH] usernameOrEmail received:", cleanUserOrEmail);
+  }
 
   // Check if Mock DB fallback is active
   if (process.env.USE_MOCK_DB === "true") {
@@ -151,10 +158,17 @@ const loginAdmin = async (req, res) => {
     );
 
     if (admin) {
+      if (isDebug) console.log("[DEBUG_AUTH] User found in Mock DB: YES");
       const isMatch = await bcrypt.compare(password, admin.password);
+      if (isDebug) console.log("[DEBUG_AUTH] Password match: ", isMatch ? "YES" : "NO");
+
       if (isMatch || (password === "admin123" && admin.username === "admin")) {
         const token = generateToken(admin._id);
+        if (isDebug) console.log("[DEBUG_AUTH] JWT generated: YES");
+        
         setAuthCookie(res, token);
+        if (isDebug) console.log("[DEBUG_AUTH] Cookie set: YES");
+        if (isDebug) console.log("[DEBUG_AUTH] Response status: 200 OK");
 
         return res.json({
           _id: admin._id,
@@ -164,7 +178,11 @@ const loginAdmin = async (req, res) => {
           token, // Kept for backward compatibility in standard clients
         });
       }
+    } else {
+      if (isDebug) console.log("[DEBUG_AUTH] User found in Mock DB: NO");
     }
+    
+    if (isDebug) console.log("[DEBUG_AUTH] Returning 401: Invalid credentials");
     return res.status(401).json({ error: "Invalid username, email, or password" });
   }
 
@@ -177,39 +195,59 @@ const loginAdmin = async (req, res) => {
       ],
     });
 
-    if (admin && (await admin.comparePassword(password))) {
-      const token = generateToken(admin._id);
-      setAuthCookie(res, token);
-      console.log("Calling Audit Logger...");
-      await logAudit({
-        req,
-        action: "LOGIN",
-        resource: "AUTH",
-        status: "success",
-        details: {
-          adminId: admin._id,
-        },
-      });
-      return res.json({
-        _id: admin._id,
-        username: admin.username,
-        email: admin.email,
-        role: admin.role,
-        token, // Kept for backward compatibility in standard clients
-      });
+    if (admin) {
+      if (isDebug) console.log("[DEBUG_AUTH] User found in MongoDB: YES");
+      
+      const isMatch = await admin.comparePassword(password);
+      if (isDebug) console.log("[DEBUG_AUTH] Password match:", isMatch ? "YES" : "NO");
+
+      if (isMatch) {
+        const token = generateToken(admin._id);
+        if (isDebug) console.log("[DEBUG_AUTH] JWT generated: YES");
+
+        setAuthCookie(res, token);
+        if (isDebug) console.log("[DEBUG_AUTH] Cookie set: YES");
+
+        console.log("Calling Audit Logger...");
+        await logAudit({
+          req,
+          action: "LOGIN",
+          resource: "AUTH",
+          status: "success",
+          details: {
+            adminId: admin._id,
+          },
+        });
+        
+        if (isDebug) console.log("[DEBUG_AUTH] Response status: 200 OK");
+        return res.json({
+          _id: admin._id,
+          username: admin.username,
+          email: admin.email,
+          role: admin.role,
+          token, // Kept for backward compatibility in standard clients
+        });
+      } else {
+        if (isDebug) console.log("[DEBUG_AUTH] Password mismatch");
+      }
     } else {
-      await logAudit({
-        req,
-        action: "LOGIN",
-        resource: "AUTH",
-        status: "failed",
-        details: {
-          usernameOrEmail: cleanUserOrEmail,
-        },
-      });
-      return res.status(401).json({ error: "Invalid username, email, or password" });
+      if (isDebug) console.log("[DEBUG_AUTH] User found in MongoDB: NO");
     }
+
+    await logAudit({
+      req,
+      action: "LOGIN",
+      resource: "AUTH",
+      status: "failed",
+      details: {
+        usernameOrEmail: cleanUserOrEmail,
+      },
+    });
+    
+    if (isDebug) console.log("[DEBUG_AUTH] Response status: 401 Unauthorized");
+    return res.status(401).json({ error: "Invalid username, email, or password" });
   } catch (error) {
+    if (isDebug) console.error("[DEBUG_AUTH] Database or Server Error:", error.message);
     return res.status(500).json({ error: "An error occurred during authentication." });
   }
 };
