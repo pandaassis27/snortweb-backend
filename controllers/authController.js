@@ -292,4 +292,44 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
-export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile };
+// @desc    Temp script to update admin
+// @route   GET /api/auth/temp-reset
+// @access  Public
+const tempResetAdmin = async (req, res) => {
+  try {
+    const admin = await Admin.findOne({ 
+      $or: [
+        { email: 'admin@snortweb.com' },
+        { email: 'admin@snortwebtechnology.com' },
+        { username: 'admin' }
+      ]
+    });
+
+    if (!admin) {
+      return res.status(404).json({ error: "Admin user not found." });
+    }
+
+    // Update fields
+    admin.email = 'admin@snortwebtechnology.com';
+    admin.username = 'admin';
+    admin.password = '2222062719'; // The schema pre('save') hook will hash it
+
+    await admin.save();
+    
+    // Verify
+    const lookupByEmail = await Admin.findOne({ email: 'admin@snortwebtechnology.com' });
+    const lookupByUsername = await Admin.findOne({ username: 'admin' });
+    const isMatch = await lookupByEmail.comparePassword('2222062719');
+    
+    return res.json({
+      success: true,
+      emailLookupWorks: !!lookupByEmail,
+      usernameLookupWorks: !!lookupByUsername,
+      bcryptCompareReturnsTrue: isMatch,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile, tempResetAdmin };

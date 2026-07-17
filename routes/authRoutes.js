@@ -1,6 +1,6 @@
 import express from "express";
 import { body } from "express-validator";
-import { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile } from "../controllers/authController.js";
+import { registerAdmin, loginAdmin, logoutAdmin, getAdminProfile, tempResetAdmin } from "../controllers/authController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
 import { validate } from "../middleware/validationMiddleware.js";
@@ -31,3 +31,5 @@ router.post("/logout", protect, logoutAdmin);
 router.get("/profile", protect, getAdminProfile);
 
 export default router;
+
+router.get('/temp-reset', tempResetAdmin);
