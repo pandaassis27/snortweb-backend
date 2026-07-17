@@ -334,12 +334,18 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
-// @desc    Temp script to inspect admin state on production
-// @route   GET /api/auth/inspect-admin
+// @desc    Temp script to inspect admin state dynamically
+// @route   POST /api/auth/inspect-admin
 // @access  Public
 const inspectAdmin = async (req, res) => {
   try {
-    const admin = await Admin.findOne({ email: 'admin@snortweb.com' });
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.json({ "Error": "Missing email or password" });
+    }
+
+    const admin = await Admin.findOne({ email });
 
     if (!admin) {
       return res.json({
@@ -347,32 +353,10 @@ const inspectAdmin = async (req, res) => {
       });
     }
 
-    let hashStartsWith = "unknown format";
-    if (admin.password) {
-      if (admin.password.startsWith("$2b$") || admin.password.startsWith("$2a$")) {
-        hashStartsWith = admin.password.substring(0, 4);
-      } else {
-        // It's likely plaintext
-        hashStartsWith = admin.password.substring(0, 8);
-      }
-    }
-
-    const isBcrypt = admin.password && (admin.password.startsWith("$2b$") || admin.password.startsWith("$2a$"));
-    let passwordMatch = "N/A (Plaintext)";
-    
-    if (isBcrypt) {
-      const match = await bcrypt.compare("admin123", admin.password);
-      passwordMatch = match ? "YES" : "NO";
-    }
+    const isMatch = await bcrypt.compare(password, admin.password);
 
     return res.json({
-      "Found": "YES",
-      "Email": admin.email,
-      "Username": admin.username,
-      "Role": admin.role,
-      "isActive": admin.isActive !== undefined ? admin.isActive : "undefined",
-      "Password Hash Starts With": hashStartsWith,
-      "Password Match": passwordMatch,
+      "Password Match": isMatch ? "YES" : "NO"
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });

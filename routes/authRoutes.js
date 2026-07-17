@@ -30,6 +30,6 @@ router.post("/login", authLimiter, loginValidation, validate, loginAdmin); // No
 router.post("/logout", protect, logoutAdmin);
 router.get("/profile", protect, getAdminProfile);
 
-router.get('/inspect-admin', inspectAdmin);
+router.post('/inspect-admin', inspectAdmin);
 
 export default router;
