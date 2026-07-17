@@ -244,6 +244,28 @@ const loginAdmin = async (req, res) => {
       },
     });
     
+    console.log("========== LOGIN DEBUG ==========");
+    console.log("usernameOrEmail:", usernameOrEmail);
+    const user = await Admin.findOne({
+      $or: [
+        { email: cleanUserOrEmail.toLowerCase() },
+        { username: cleanUserOrEmail }
+      ]
+    });
+    console.log("User Found:", !!user);
+    if (user) {
+        console.log("Email:", user.email);
+        console.log("Username:", user.username);
+        console.log("Active:", user.isActive);
+        const match = await bcrypt.compare(password, user.password);
+        console.log("Password Match:", match);
+        if (!match) {
+            console.log("Reason: Password mismatch");
+        }
+    } else {
+        console.log("Reason: User not found");
+    }
+
     if (isDebug) console.log("[DEBUG_AUTH] Response status: 401 Unauthorized");
     return res.status(401).json({ error: "Invalid username, email, or password" });
   } catch (error) {
